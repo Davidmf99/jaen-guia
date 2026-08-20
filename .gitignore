@@ -1,0 +1,27 @@
+# Gestor de paquetes oficial del proyecto: npm (package-lock.json).
+# No añadir lockfiles de otros gestores (pnpm-lock.yaml, yarn.lock, bun.lockb).
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# env files
+.env*.local
+.env
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+*.tsbuildinfo
+next-env.d.ts
