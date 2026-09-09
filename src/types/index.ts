@@ -53,15 +53,42 @@ export interface Resena {
   created_at: string
 }
 
+export type EstadoEvento = 'borrador' | 'publicado' | 'cancelado' | 'aplazado'
+export type OrigenEvento = 'admin' | 'negocio' | 'scraper'
+
 export interface Evento {
   id: string
   titulo: string
+  // Lo rellena el trigger eventos_slug si se inserta vacío.
   slug: string
   descripcion: string | null
+  categoria_id: string | null
+  categoria?: Categoria
   negocio_id: string | null
+  municipio_id: string | null
   imagen: string | null
   fecha_inicio: string
   fecha_fin: string | null
+  es_todo_el_dia: boolean
+  estado: EstadoEvento
+  es_gratis: boolean
+  // Texto libre a propósito ("12 € / 8 € reducida", "taquilla
+  // inversa"): solo es_gratis es filtrable.
+  precio_texto: string | null
+  origen: OrigenEvento
+  fuente_nombre: string | null
+  fuente_url: string | null
+  creado_por: string | null
+  lugar_nombre: string | null
+  direccion: string | null
+  lat: number | null
+  lng: number | null
+  duplicado_de: string | null
+  // Columnas generadas en Postgres: solo lectura.
+  url_canonica: string | null
+  huella: string
+  created_at: string
+  actualizado_at: string
 }
 
 export interface Promocion {
