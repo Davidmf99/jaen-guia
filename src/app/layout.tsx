@@ -12,6 +12,14 @@ import "./globals.css";
 // const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  // Necesario para que las imágenes de Open Graph declaradas con ruta
+  // relativa (p. ej. la de un evento subida a /public) se compartan como
+  // URL absoluta: WhatsApp y compañía no resuelven rutas relativas. Sin
+  // esto Next avisa por consola y cae a localhost, que en producción
+  // deja el compartido sin imagen.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  ),
   title: "Jaén Guía · Alma de la Tierra",
   description:
     "Guía de gastronomía, cultura y ocio de Jaén: descubre bares, tiendas, eventos y experiencias, hechas por y para jiennenses y visitantes.",

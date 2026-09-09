@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { MapPin } from "lucide-react";
-import { diaYMes, fechaEvento, tintePara } from "@/lib/eventos";
+import { fechaEvento } from "@/lib/eventos";
+import ImagenEvento from "./ImagenEvento";
 import type { Categoria } from "@/types";
 
 // Mismo escalonado de entrada que NegocioCard (delay creciente con tope,
@@ -18,6 +19,7 @@ function delayEntrada(index: number) {
 
 export interface EventoTarjeta {
   id: string;
+  slug: string;
   titulo: string;
   fecha_inicio: string;
   es_todo_el_dia: boolean;
@@ -37,13 +39,6 @@ interface Props {
 
 export default function EventoCard({ evento, index = 0 }: Props) {
   const reducirMovimiento = useReducedMotion();
-  const [falloImagen, setFalloImagen] = useState(false);
-
-  // El hueco de imagen nunca queda vacío: si el evento no tiene foto, o
-  // si la que tiene no carga en el navegador, se pinta el día y el mes
-  // en grande sobre el tinte de su categoría.
-  const hayImagen = Boolean(evento.imagen) && !falloImagen;
-  const { dia, mes } = diaYMes(evento.fecha_inicio);
 
   const delay = reducirMovimiento ? 0 : delayEntrada(index);
   const variantes: Variants = reducirMovimiento
@@ -60,28 +55,12 @@ export default function EventoCard({ evento, index = 0 }: Props) {
       {/* Misma relación de aspecto que NegocioCard, para que las
           tarjetas de las dos secciones se lean como una sola retícula. */}
       <div className="relative aspect-[16/10] overflow-hidden">
-        {hayImagen ? (
-          /* eslint-disable-next-line @next/next/no-img-element -- URL externa de la agenda/negocio, sin dominios fijos que declarar en next.config */
-          <img
-            src={evento.imagen!}
-            alt={evento.titulo}
-            onError={() => setFalloImagen(true)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${tintePara(
-              evento.categoriaTipo
-            )} text-white`}
-          >
-            <span className="font-display text-5xl font-semibold leading-none">
-              {dia}
-            </span>
-            <span className="mt-1.5 text-xs font-semibold tracking-[0.2em] text-white/80">
-              {mes}
-            </span>
-          </div>
-        )}
+        <ImagenEvento
+          imagen={evento.imagen}
+          titulo={evento.titulo}
+          fechaInicio={evento.fecha_inicio}
+          categoriaTipo={evento.categoriaTipo}
+        />
 
         {evento.categoriaNombre && (
           <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-oliva-900">
@@ -101,7 +80,12 @@ export default function EventoCard({ evento, index = 0 }: Props) {
           {fechaEvento(evento.fecha_inicio, evento.es_todo_el_dia)}
         </p>
         <h3 className="mt-1 font-display text-base font-semibold leading-snug text-oliva-900">
-          {evento.titulo}
+          <Link
+            href={`/evento/${evento.slug}`}
+            className="hover:text-terracota-600 transition-colors"
+          >
+            {evento.titulo}
+          </Link>
         </h3>
         {evento.lugar && (
           <p className="mt-1.5 flex items-center gap-1 text-sm text-oliva-700">

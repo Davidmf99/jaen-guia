@@ -59,3 +59,20 @@ const TINTE_POR_DEFECTO = "from-oliva-600 to-oliva-900";
 export function tintePara(tipo: Categoria["tipo"] | null | undefined) {
   return (tipo && TINTE[tipo]) || TINTE_POR_DEFECTO;
 }
+
+/**
+ * Filtro de "eventos todavía vigentes" para PostgREST, equivalente a
+ * `coalesce(fecha_fin, fecha_inicio) >= now()`.
+ *
+ * Filtrar solo por fecha_inicio hacía desaparecer un evento de varios
+ * días en cuanto empezaba: una feria del 31 de octubre al 1 de
+ * noviembre se caía del listado el mismo día 31. PostgREST no admite
+ * coalesce() en un filtro, así que se expresa como: o tiene fecha_fin y
+ * aún no ha pasado, o no tiene fecha_fin y su inicio es futuro.
+ *
+ * Se usa como `.or(filtroEventosVigentes())`.
+ */
+export function filtroEventosVigentes() {
+  const ahora = new Date().toISOString();
+  return `fecha_fin.gte.${ahora},and(fecha_fin.is.null,fecha_inicio.gte.${ahora})`;
+}

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import GridStagger from "@/components/motion/GridStagger";
 import EventoCard, { type EventoTarjeta } from "./EventoCard";
+import { filtroEventosVigentes } from "@/lib/eventos";
 import type { Categoria } from "@/types";
 
 // Dos filas completas de la rejilla de 3 columnas.
@@ -11,6 +12,7 @@ const MAX_EVENTOS = 6;
 
 interface EventoRow {
   id: string;
+  slug: string;
   titulo: string;
   fecha_inicio: string;
   es_todo_el_dia: boolean;
@@ -28,16 +30,13 @@ async function getEventosProximos(): Promise<EventoTarjeta[]> {
   // 'cancelado' y 'aplazado' sí son públicos y no pintan nada en una
   // lista de "próximos" sin una etiqueta que explique su estado.
   //
-  // El filtro es por fecha_inicio, así que un evento de varios días que
-  // ya ha empezado deja de aparecer aunque siga en curso. Si eso
-  // importa, hay que filtrar por coalesce(fecha_fin, fecha_inicio).
   const { data, error } = await supabase
     .from("eventos")
     .select(
-      "id, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
+      "id, slug, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
     )
     .eq("estado", "publicado")
-    .gte("fecha_inicio", new Date().toISOString())
+    .or(filtroEventosVigentes())
     .order("fecha_inicio", { ascending: true })
     .limit(MAX_EVENTOS)
     .returns<EventoRow[]>();
@@ -46,6 +45,7 @@ async function getEventosProximos(): Promise<EventoTarjeta[]> {
 
   return data.map((evento) => ({
     id: evento.id,
+    slug: evento.slug,
     titulo: evento.titulo,
     fecha_inicio: evento.fecha_inicio,
     es_todo_el_dia: evento.es_todo_el_dia,
