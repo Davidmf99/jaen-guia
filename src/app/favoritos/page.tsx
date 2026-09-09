@@ -82,7 +82,6 @@ export default async function FavoritosPage() {
               <NegocioCard
                 key={negocio.slug}
                 negocio={negocio}
-                size="md"
                 rutaActual="/favoritos"
                 index={i}
               />

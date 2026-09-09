@@ -89,7 +89,6 @@ export default async function DestacadosPage() {
               <NegocioCard
                 key={negocio.slug}
                 negocio={negocio}
-                size="md"
                 rutaActual="/destacados"
                 index={i}
               />

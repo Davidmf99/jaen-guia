@@ -290,7 +290,6 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                 <NegocioCard
                   key={negocio.slug}
                   negocio={negocio}
-                  size="md"
                   rutaActual={`/${categoria}`}
                   index={i}
                 />

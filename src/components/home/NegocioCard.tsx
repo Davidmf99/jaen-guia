@@ -39,15 +39,23 @@ interface Props {
     | "puntuacion_media"
   > & { categoriaNombre?: string; esFavorito?: boolean };
   rutaActual: string;
-  size?: "lg" | "md" | "sm";
   /** Posición dentro de su grid, para el delay escalonado (ver arriba). */
   index?: number;
 }
 
-export default function NegocioCard({ negocio, rutaActual, size = "md", index = 0 }: Props) {
+// Relación de aspecto fija para la imagen, igual en todas las tarjetas.
+// Antes la altura salía de un prop `size` (h-56 para la destacada, h-40
+// para el resto) y en el bento de la home las tres tarjetas tienen el
+// mismo ancho pero distinta altura de imagen, así que los títulos no
+// alineaban. Con una proporción constante y object-cover (lo aplica
+// ImagenNegocio) todas las tarjetas miden lo mismo.
+//
+// 16/10 ≈ la altura que ya tenía la tarjeta destacada, así que la que
+// cambia de tamaño es la mediana, que crece hasta igualarla.
+const ASPECTO_IMAGEN = "aspect-[16/10]";
+
+export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
   const reducirMovimiento = useReducedMotion();
-  const alturaImagen =
-    size === "lg" ? "h-56" : size === "sm" ? "h-28" : "h-40";
 
   const delay = reducirMovimiento ? 0 : delayEntrada(index);
   const variantes: Variants = reducirMovimiento
@@ -61,7 +69,7 @@ export default function NegocioCard({ negocio, rutaActual, size = "md", index = 
       transition={{ duration: 0.2, ease: "easeOut" }}
       className="group overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow"
     >
-      <div className={`relative ${alturaImagen} overflow-hidden`}>
+      <div className={`relative ${ASPECTO_IMAGEN} overflow-hidden`}>
         <ImagenNegocio
           negocioId={negocio.id}
           nombre={negocio.nombre}

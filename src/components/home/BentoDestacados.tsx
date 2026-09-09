@@ -83,7 +83,7 @@ export default async function BentoDestacados() {
       ) : (
         <GridStagger className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="md:col-span-1">
-            <NegocioCard negocio={principal} size="lg" rutaActual="/" index={0} />
+            <NegocioCard negocio={principal} rutaActual="/" index={0} />
           </div>
           {resto.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
@@ -91,7 +91,6 @@ export default async function BentoDestacados() {
                 <NegocioCard
                   key={negocio.slug}
                   negocio={negocio}
-                  size="md"
                   rutaActual="/"
                   index={i + 1}
                 />
