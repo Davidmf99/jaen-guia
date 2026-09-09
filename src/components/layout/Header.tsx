@@ -1,7 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronDown, Heart, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import MenuMovil from "./MenuMovil";
 import { getCategorias } from "@/lib/categorias";
 
 export default async function Header() {
@@ -36,12 +38,22 @@ export default async function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-tierra-50/95 backdrop-blur border-b border-oliva-100">
+    // Fondo opaco a propósito. Con bg-tierra-50/95 + backdrop-blur, el
+    // buscador flotante del hero se transparentaba a través de la barra
+    // al hacer scroll (se veía el botón "Buscar" naranja por detrás del
+    // menú). Detrás de un fondo opaco el backdrop-blur no hace nada, así
+    // que se quita también.
+    <header className="sticky top-0 z-50 bg-tierra-50 border-b border-oliva-100">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <span className="font-display text-xl font-semibold tracking-wide text-oliva-900">
-            Jaén Guía
-          </span>
+          <Image
+            src="/images/logo.svg"
+            alt="Jaén Guía"
+            width={52}
+            height={42}
+            className="h-10 w-auto md:h-[42px]"
+            priority
+          />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-oliva-700">
@@ -94,11 +106,13 @@ export default async function Header() {
         ) : (
           <Link
             href="/login"
-            className="rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
+            className="hidden md:inline-block rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
           >
             Iniciar sesión
           </Link>
         )}
+
+        <MenuMovil enlaces={navLinks} mostrarLogin={!nombreMostrado} />
       </div>
     </header>
   );

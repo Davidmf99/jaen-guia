@@ -25,11 +25,11 @@ export default function Hero() {
 
         <div className="relative mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-6 text-center text-white">
           <h1 className="font-display text-4xl md:text-5xl font-semibold">
-            Jaén Guía: Alma de la Tierra
+            Qué hacer hoy en Jaén
           </h1>
           <p className="mt-3 text-base md:text-lg text-tierra-100">
-            Descubre los secretos de la provincia del mar de olivos, donde la
-            historia y el sabor se encuentran.
+            Bares, restaurantes, planes y eventos de toda la provincia, en un
+            solo sitio.
           </p>
         </div>
       </div>
@@ -50,8 +50,19 @@ export default function Hero() {
       {/* Buscador flotante: el -mt-16 ya lo monta sobre la curva; el
           -mb-10 además invade el arranque de la sección siguiente
           (Destacados), en vez de quedarse contenido dentro del propio
-          hero. Por eso el section ya no lleva overflow-hidden. */}
-      <div className="relative z-10 mx-auto -mt-16 -mb-10 max-w-2xl px-6">
+          hero. Por eso el section ya no lleva overflow-hidden.
+
+          z-20 y no z-10: BentoDestacados también es z-10 y va después en
+          el DOM, así que a igualdad de z-index ganaba ella y recortaba la
+          parte del buscador que invade su franja. Sigue por debajo de la
+          cabecera (z-50), que debe tapar el buscador al hacer scroll.
+
+          El -mb-10 solo a partir de sm: cancela el pt-10 de Destacados,
+          así que el título "Destacados en Jaén" queda pegado al borde
+          inferior de la caja, sin ningún aire. En escritorio la caja es
+          de una sola fila y se ve bien; apilada en móvil (flex-col por
+          debajo de sm) mide 244px y el pegado canta. */}
+      <div className="relative z-20 mx-auto -mt-16 sm:-mb-10 max-w-2xl px-6">
         <div className="rounded-3xl bg-white p-3 shadow-lg">
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="flex flex-1 items-center gap-2 rounded-full border border-oliva-100 px-4 py-2.5">
