@@ -17,8 +17,17 @@ create table municipios (
   created_at timestamptz default now()
 );
 
-insert into municipios (nombre, slug, es_capital)
-values ('Jaén', 'jaen', true);
+-- Id fijo, no uuid_generate_v4(): es el valor que usan como DEFAULT las
+-- columnas municipio_id de `negocios` y `eventos` (ver más abajo).
+-- Postgres NO admite subconsultas en una expresión DEFAULT, así que no
+-- se puede resolver "el municipio con slug jaen" desde ahí; hace falta
+-- un literal, y para tenerlo el literal debe fijarse aquí.
+--
+-- Es además el id que ya tiene esta fila en la base de producción, de
+-- modo que un entorno nuevo creado con estas migraciones queda idéntico
+-- al que hay.
+insert into municipios (id, nombre, slug, es_capital)
+values ('a056bd1b-d6e2-40e8-b005-1d6b718854fb', 'Jaén', 'jaen', true);
 
 -- ---------------------------------------------------------
 -- CATEGORÍAS (Gastronomía, Cultura, Naturaleza, Experiencias...)
@@ -51,7 +60,7 @@ create table negocios (
   nombre text not null,
   slug text not null unique,
   categoria_id uuid references categorias(id),
-  municipio_id uuid references municipios(id) default (select id from municipios where slug = 'jaen'),
+  municipio_id uuid references municipios(id) default 'a056bd1b-d6e2-40e8-b005-1d6b718854fb',
   descripcion text,
   descripcion_corta text,
   direccion text,
@@ -108,7 +117,7 @@ create table eventos (
   slug text not null unique,
   descripcion text,
   negocio_id uuid references negocios(id), -- opcional: evento ligado a un negocio
-  municipio_id uuid references municipios(id) default (select id from municipios where slug = 'jaen'),
+  municipio_id uuid references municipios(id) default 'a056bd1b-d6e2-40e8-b005-1d6b718854fb',
   imagen text,
   fecha_inicio timestamptz not null,
   fecha_fin timestamptz,
