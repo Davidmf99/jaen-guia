@@ -6,7 +6,12 @@ import EventoCard, { type EventoTarjeta } from "@/components/home/EventoCard";
 import GridStagger from "@/components/motion/GridStagger";
 import { createClient } from "@/lib/supabase/server";
 import { getCategorias } from "@/lib/categorias";
-import { filtroEventosVigentes } from "@/lib/eventos";
+import {
+  filtroEventosEnRango,
+  filtroEventosVigentes,
+  rangoTemporal,
+  type CorteTemporal,
+} from "@/lib/eventos";
 import type { Categoria } from "@/types";
 
 const TITULO = "Eventos en Jaén";
@@ -34,7 +39,16 @@ interface EventoRow {
 // Como en /destacados, sin paginar: la agenda de una provincia no da
 // para listados de cientos de filas. Si algún día los da, este es el
 // sitio donde meter el rango, igual que en [categoria]/page.tsx.
-async function getEventos(categoriaSlug?: string): Promise<EventoTarjeta[]> {
+const CORTES: { valor: CorteTemporal | ""; etiqueta: string }[] = [
+  { valor: "", etiqueta: "Todos" },
+  { valor: "hoy", etiqueta: "Hoy" },
+  { valor: "finde", etiqueta: "Este finde" },
+];
+
+async function getEventos(
+  categoriaSlug?: string,
+  corte?: CorteTemporal
+): Promise<EventoTarjeta[]> {
   const supabase = await createClient();
 
   // El !inner solo cuando se filtra: hace falta para poder filtrar por un
@@ -47,8 +61,17 @@ async function getEventos(categoriaSlug?: string): Promise<EventoTarjeta[]> {
     .select(
       `id, slug, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:${relacion}(nombre, slug, tipo), negocio:negocios(nombre)`
     )
-    .eq("estado", "publicado")
-    .or(filtroEventosVigentes());
+    .eq("estado", "publicado");
+
+  if (corte) {
+    // Un corte es un subconjunto de los vigentes, no una ventana al
+    // pasado: rangoTemporal() nunca devuelve un `desde` anterior a ahora,
+    // así que este filtro ya implica el de vigencia.
+    const { desde, hasta } = rangoTemporal(corte);
+    consulta = consulta.lt("fecha_inicio", hasta).or(filtroEventosEnRango(desde));
+  } else {
+    consulta = consulta.or(filtroEventosVigentes());
+  }
 
   if (categoriaSlug) consulta = consulta.eq("categoria.slug", categoriaSlug);
 
@@ -73,18 +96,30 @@ async function getEventos(categoriaSlug?: string): Promise<EventoTarjeta[]> {
 }
 
 interface PageProps {
-  searchParams: Promise<{ categoria?: string }>;
+  searchParams: Promise<{ categoria?: string; cuando?: string }>;
 }
 
 export default async function EventosPage({ searchParams }: PageProps) {
-  const { categoria } = await searchParams;
+  const { categoria, cuando } = await searchParams;
+  const corte: CorteTemporal | undefined =
+    cuando === "hoy" || cuando === "finde" ? cuando : undefined;
+
   const [categorias, eventos] = await Promise.all([
     getCategorias(),
-    getEventos(categoria),
+    getEventos(categoria, corte),
   ]);
 
-  const hrefCategoria = (slug?: string) =>
-    slug ? `/eventos?categoria=${slug}` : "/eventos";
+  // Los dos filtros se combinan, así que cada enlace conserva el otro.
+  const href = (cambios: { categoria?: string; cuando?: string }) => {
+    const params = new URLSearchParams();
+    const nuevaCategoria =
+      "categoria" in cambios ? cambios.categoria : categoria;
+    const nuevoCuando = "cuando" in cambios ? cambios.cuando : corte;
+    if (nuevaCategoria) params.set("categoria", nuevaCategoria);
+    if (nuevoCuando) params.set("cuando", nuevoCuando);
+    const query = params.toString();
+    return query ? `/eventos?${query}` : "/eventos";
+  };
 
   const claseChip = (activo: boolean) =>
     `rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -104,17 +139,32 @@ export default async function EventosPage({ searchParams }: PageProps) {
           <p className="mt-2 text-oliva-700">{DESCRIPCION}</p>
         </header>
 
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm font-medium text-oliva-700">
+            Cuándo:
+          </span>
+          {CORTES.map((c) => (
+            <Link
+              key={c.valor || "todos"}
+              href={href({ cuando: c.valor || undefined })}
+              className={claseChip((corte ?? "") === c.valor)}
+            >
+              {c.etiqueta}
+            </Link>
+          ))}
+        </div>
+
         <div className="mb-6 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-sm font-medium text-oliva-700">
             Categoría:
           </span>
-          <Link href={hrefCategoria()} className={claseChip(!categoria)}>
+          <Link href={href({ categoria: undefined })} className={claseChip(!categoria)}>
             Todas
           </Link>
           {categorias.map((c) => (
             <Link
               key={c.slug}
-              href={hrefCategoria(c.slug)}
+              href={href({ categoria: c.slug })}
               className={claseChip(categoria === c.slug)}
             >
               {c.nombre}
@@ -126,16 +176,20 @@ export default async function EventosPage({ searchParams }: PageProps) {
           <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50 px-6 py-12 text-center">
             <CalendarDays size={28} aria-hidden="true" className="text-oliva-400" />
             <p className="font-display text-base text-oliva-700">
-              {categoria
-                ? "No hay eventos programados en esta categoría"
-                : "Todavía no hay eventos programados en Jaén"}
+              {corte === "hoy"
+                ? "Hoy no hay nada programado en Jaén"
+                : corte === "finde"
+                  ? "Este fin de semana no hay nada programado"
+                  : categoria
+                    ? "No hay eventos programados en esta categoría"
+                    : "Todavía no hay eventos programados en Jaén"}
             </p>
-            {categoria && (
+            {(categoria || corte) && (
               <Link
                 href="/eventos"
                 className="text-sm font-semibold text-terracota-600 hover:underline"
               >
-                Ver todas las categorías &rsaquo;
+                Ver todos los eventos &rsaquo;
               </Link>
             )}
           </div>

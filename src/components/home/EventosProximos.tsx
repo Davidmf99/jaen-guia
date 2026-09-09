@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import GridStagger from "@/components/motion/GridStagger";
 import EventoCard, { type EventoTarjeta } from "./EventoCard";
-import { filtroEventosVigentes } from "@/lib/eventos";
+import { filtroEventosVigentes, rangoTemporal } from "@/lib/eventos";
 import type { Categoria } from "@/types";
 
 // Dos filas completas de la rejilla de 3 columnas.
@@ -63,6 +63,12 @@ async function getEventosProximos(): Promise<EventoTarjeta[]> {
 export default async function EventosProximos() {
   const eventos = await getEventosProximos();
 
+  // Si algo de lo que se está mostrando empieza hoy, el titular lo dice:
+  // es la pregunta con la que entra el usuario. No cuesta una consulta
+  // extra, sale de los eventos ya traídos.
+  const finDeHoy = rangoTemporal("hoy").hasta;
+  const hayAlgoHoy = eventos.some((evento) => evento.fecha_inicio < finDeHoy);
+
   return (
     // -mt-10 monta el arranque de esta banda sobre el borde inferior del
     // bento grid de Destacados; el pt-4 (menor que el -mt-10) deja que el
@@ -73,11 +79,11 @@ export default async function EventosProximos() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-2xl font-semibold text-tierra-50">
-            Eventos Próximos
+            {hayAlgoHoy ? "Hoy en Jaén" : "Eventos Próximos"}
           </h2>
           {eventos.length > 0 && (
             <Link
-              href="/eventos"
+              href={hayAlgoHoy ? "/eventos?cuando=hoy" : "/eventos"}
               className="text-sm font-medium text-terracota-400 hover:underline"
             >
               Ver todos &rsaquo;
