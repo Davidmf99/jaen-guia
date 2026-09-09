@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ParallaxLayer from "@/components/motion/ParallaxLayer";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 
@@ -32,7 +33,10 @@ export default function EsenciaJaen() {
         </svg>
       </ParallaxLayer>
       <div className="absolute inset-0 bg-gradient-to-t from-oliva-900/90 via-oliva-900/40 to-transparent" />
-      <div className="relative flex h-full flex-col justify-end px-8 pb-8 text-white">
+      {/* max-w-6xl px-6 como el resto de la página: al pasar esta sección
+          al final quedó pegada al footer, y su antiguo px-8 a sangre
+          desalineaba el texto respecto a todo lo demás. */}
+      <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-end px-6 pb-8 text-white">
         <h2 className="font-display text-2xl font-semibold">
           La Esencia de Jaén
         </h2>
@@ -40,6 +44,15 @@ export default function EsenciaJaen() {
           Un paisaje patrimonio de la humanidad, cultura milenaria y vida.
           Sumérgete en el mayor olivar del mundo.
         </p>
+        {/* La sección era 288px de alto sin una sola cosa que hacer.
+            Ahora cierra la portada llevando a la categoría de la que
+            habla, en vez de dejar al usuario en un callejón. */}
+        <Link
+          href="/naturaleza"
+          className="mt-4 inline-block w-fit rounded-full bg-terracota-500 px-4 py-2 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+        >
+          Descubre el mar de olivos &rsaquo;
+        </Link>
       </div>
     </AnimatedSection>
   );
