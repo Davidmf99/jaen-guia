@@ -1,44 +1,63 @@
+import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import EstadoVacio from "./EstadoVacio";
 import AnimatedSection from "@/components/motion/AnimatedSection";
-import type { Evento } from "@/types";
+import GridStagger from "@/components/motion/GridStagger";
+import EventoCard, { type EventoTarjeta } from "./EventoCard";
+import type { Categoria } from "@/types";
 
-// Antes terminaban en "to-oliva-900": sobre el fondo oscuro de la
-// sección (ahora oliva-900) esos degradados se fundían con el fondo y
-// las tarjetas perdían el borde visual. Se sustituyen los extremos
-// oscuros por terracota/oliva-700 para que sigan destacando.
-const DEGRADADOS_EVENTO = [
-  "from-oliva-600 to-terracota-600",
-  "from-terracota-500 to-oliva-700",
-  "from-oliva-400 to-terracota-600",
-  "from-terracota-400 to-oliva-700",
-];
+// Dos filas completas de la rejilla de 3 columnas.
+const MAX_EVENTOS = 6;
 
-const MESES = [
-  "ene.", "feb.", "mar.", "abr.", "may.", "jun.",
-  "jul.", "ago.", "sept.", "oct.", "nov.", "dic.",
-];
-
-function formatFecha(fechaIso: string) {
-  const fecha = new Date(fechaIso);
-  return `${fecha.getDate()} de ${MESES[fecha.getMonth()]} ${fecha.getFullYear()}`;
+interface EventoRow {
+  id: string;
+  titulo: string;
+  fecha_inicio: string;
+  es_todo_el_dia: boolean;
+  es_gratis: boolean;
+  imagen: string | null;
+  lugar_nombre: string | null;
+  categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
+  negocio: { nombre: string } | null;
 }
 
-async function getEventosProximos() {
+async function getEventosProximos(): Promise<EventoTarjeta[]> {
   const supabase = await createClient();
-  const hoy = new Date().toISOString();
 
+  // Solo 'publicado': los borradores ya los esconde la RLS, pero
+  // 'cancelado' y 'aplazado' sí son públicos y no pintan nada en una
+  // lista de "próximos" sin una etiqueta que explique su estado.
+  //
+  // El filtro es por fecha_inicio, así que un evento de varios días que
+  // ya ha empezado deja de aparecer aunque siga en curso. Si eso
+  // importa, hay que filtrar por coalesce(fecha_fin, fecha_inicio).
   const { data, error } = await supabase
     .from("eventos")
-    .select("titulo, fecha_inicio")
-    .gte("fecha_inicio", hoy)
+    .select(
+      "id, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
+    )
+    .eq("estado", "publicado")
+    .gte("fecha_inicio", new Date().toISOString())
     .order("fecha_inicio", { ascending: true })
-    .limit(6)
-    .returns<Pick<Evento, "titulo" | "fecha_inicio">[]>();
+    .limit(MAX_EVENTOS)
+    .returns<EventoRow[]>();
 
   if (error || !data) return [];
 
-  return data;
+  return data.map((evento) => ({
+    id: evento.id,
+    titulo: evento.titulo,
+    fecha_inicio: evento.fecha_inicio,
+    es_todo_el_dia: evento.es_todo_el_dia,
+    es_gratis: evento.es_gratis,
+    imagen: evento.imagen,
+    // Los eventos de agenda oficial traen lugar_nombre; los que publica
+    // un negocio desde su panel normalmente no, y ahí el lugar es el
+    // propio negocio.
+    lugar: evento.lugar_nombre ?? evento.negocio?.nombre ?? null,
+    categoriaNombre: evento.categoria?.nombre ?? null,
+    categoriaTipo: evento.categoria?.tipo ?? null,
+  }));
 }
 
 export default async function EventosProximos() {
@@ -50,38 +69,47 @@ export default async function EventosProximos() {
     // propio título "Eventos Próximos" suba y quede solapado con ese
     // borde, no solo el fondo oscuro. Destacados lleva z-10 para quedar
     // visualmente por delante en la zona de solape.
-    <AnimatedSection className="-mt-10 bg-oliva-900 pt-4 pb-10">
+    <AnimatedSection className="-mt-10 bg-oliva-900 pt-4 pb-12">
       <div className="mx-auto max-w-6xl px-6">
-        <h2 className="mb-5 font-display text-2xl font-semibold text-tierra-50">
-          Eventos Próximos
-        </h2>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-display text-2xl font-semibold text-tierra-50">
+            Eventos Próximos
+          </h2>
+          {eventos.length > 0 && (
+            <Link
+              href="/eventos"
+              className="text-sm font-medium text-terracota-400 hover:underline"
+            >
+              Ver todos &rsaquo;
+            </Link>
+          )}
+        </div>
 
         {eventos.length === 0 ? (
-          <EstadoVacio mensaje="Aún no hay eventos próximos programados" />
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {eventos.map((evento, i) => (
-              <article
-                key={evento.titulo}
-                className="min-w-[220px] flex-1 overflow-hidden rounded-2xl bg-oliva-700 text-white"
-              >
-                <div
-                  className={`h-32 bg-gradient-to-br ${DEGRADADOS_EVENTO[i % DEGRADADOS_EVENTO.length]}`}
-                />
-                <div className="p-4">
-                  <p className="text-xs text-tierra-200">
-                    {formatFecha(evento.fecha_inicio)}
-                  </p>
-                  <h3 className="mt-1 text-sm font-semibold leading-snug text-tierra-50">
-                    {evento.titulo}
-                  </h3>
-                  <button className="mt-3 rounded-full bg-terracota-500 px-3 py-1 text-xs font-semibold hover:bg-terracota-600 transition-colors">
-                    Más info
-                  </button>
-                </div>
-              </article>
-            ))}
+          // Sin caja punteada de EstadoVacio: sobre la banda oscura un
+          // recuadro vacío pesa más que lo que hay dentro. Un mensaje
+          // corto y una llamada a publicar ocupan menos y dicen más.
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <CalendarDays size={26} aria-hidden="true" className="text-oliva-400" />
+            <p className="text-tierra-100">
+              Todavía no hay eventos programados en Jaén.
+            </p>
+            <Link
+              href="/panel"
+              className="text-sm font-semibold text-terracota-400 hover:underline"
+            >
+              ¿Tienes un negocio? Publica el tuyo &rsaquo;
+            </Link>
           </div>
+        ) : (
+          // Misma retícula que Destacados (max-w-6xl, px-6, gap-4 y 3
+          // columnas en escritorio), con un escalón intermedio de 2
+          // columnas en tablet.
+          <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {eventos.map((evento, i) => (
+              <EventoCard key={evento.id} evento={evento} index={i} />
+            ))}
+          </GridStagger>
         )}
       </div>
     </AnimatedSection>
