@@ -5,6 +5,7 @@ import BentoDestacados from "@/components/home/BentoDestacados";
 import EventosProximos from "@/components/home/EventosProximos";
 import EsenciaJaen from "@/components/home/EsenciaJaen";
 import MapaExperiencia from "@/components/home/MapaExperiencia";
+import { getCategorias } from "@/lib/categorias";
 
 // Coincide a propósito con el metadata por defecto de layout.tsx: se
 // declara aquí también para que "/" siga el mismo patrón explícito que
@@ -15,12 +16,16 @@ export const metadata: Metadata = {
     "Guía de gastronomía, cultura y ocio de Jaén: descubre bares, tiendas, eventos y experiencias, hechas por y para jiennenses y visitantes.",
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Los chips del buscador salen de la base, no de una lista escrita a
+  // mano que se quedaba desfasada.
+  const categorias = await getCategorias();
+
   return (
     <>
       <Header />
       <main>
-        <Hero />
+        <Hero categorias={categorias} />
         <BentoDestacados />
         <EventosProximos />
         <EsenciaJaen />

@@ -1,15 +1,47 @@
 "use client";
 
-import { Search, MapPin, Utensils, Landmark, Trees } from "lucide-react";
+import Link from "next/link";
+import {
+  Search,
+  MapPin,
+  UtensilsCrossed,
+  Landmark,
+  Trees,
+  ShoppingBag,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import ParallaxLayer from "@/components/motion/ParallaxLayer";
+import type { CategoriaNav } from "@/lib/categorias";
+import type { Categoria } from "@/types";
 
-const FILTROS = [
-  { label: "Dónde Comer", icon: Utensils },
-  { label: "Qué Ver", icon: Landmark },
-  { label: "Turismo Rural", icon: Trees },
-];
+// Los chips decían "Dónde Comer / Qué Ver / Turismo Rural", los nombres
+// que tenían las categorías en 0001_init.sql y que ya no existen: la
+// navegación dice "Gastronomía / Cultura / Naturaleza". Ahora salen de
+// la base, así que no pueden volver a desincronizarse.
+//
+// El icono se mapea por `tipo` y no por categorias.icono: `tipo` es un
+// CHECK fijo, mientras que icono es texto libre con el nombre de un
+// componente de lucide, y resolverlo en tiempo de ejecución obligaría a
+// cargar el paquete entero en el cliente.
+const ICONO_POR_TIPO: Record<Categoria["tipo"], LucideIcon> = {
+  comer_beber: UtensilsCrossed,
+  cultura: Landmark,
+  naturaleza: Trees,
+  tienda: ShoppingBag,
+  ocio: Sparkles,
+};
 
-export default function Hero() {
+// Tres, como antes: son un atajo visual, no la navegación completa.
+const MAX_CHIPS = 3;
+
+interface Props {
+  categorias: CategoriaNav[];
+}
+
+export default function Hero({ categorias }: Props) {
+  const chips = categorias.slice(0, MAX_CHIPS);
+
   return (
     <section className="relative">
       {/*
@@ -64,34 +96,56 @@ export default function Hero() {
           debajo de sm) mide 244px y el pegado canta. */}
       <div className="relative z-20 mx-auto -mt-16 sm:-mb-10 max-w-2xl px-6">
         <div className="rounded-3xl bg-white p-3 shadow-lg">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="flex flex-1 items-center gap-2 rounded-full border border-oliva-100 px-4 py-2.5">
-              <Search size={18} className="text-oliva-400" />
-              <input
-                type="text"
-                placeholder="¿Qué quieres descubrir?"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-oliva-400"
-              />
-            </div>
-            <div className="flex items-center gap-2 rounded-full border border-oliva-100 px-4 py-2.5">
-              <MapPin size={18} className="text-oliva-400" />
-              <span className="text-sm text-oliva-700">Jaén, España</span>
-            </div>
-            <button className="rounded-full bg-terracota-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors">
-              Buscar
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2 px-1">
-            {FILTROS.map(({ label, icon: Icon }) => (
+          {/* Formulario GET nativo: así Enter en el input y el botón
+              hacen exactamente lo mismo sin necesidad de un handler, y
+              `required` impide navegar con el campo vacío sin depender
+              de JavaScript. */}
+          <form action="/buscar" method="get">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-1 items-center gap-2 rounded-full border border-oliva-100 px-4 py-2.5">
+                <Search size={18} aria-hidden="true" className="text-oliva-400" />
+                <label htmlFor="q" className="sr-only">
+                  Buscar negocios en Jaén
+                </label>
+                <input
+                  id="q"
+                  name="q"
+                  type="search"
+                  required
+                  placeholder="¿Qué quieres descubrir?"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-oliva-400"
+                />
+              </div>
+              <div className="flex items-center gap-2 rounded-full border border-oliva-100 px-4 py-2.5">
+                <MapPin size={18} aria-hidden="true" className="text-oliva-400" />
+                <span className="text-sm text-oliva-700">Jaén, España</span>
+              </div>
               <button
-                key={label}
-                className="flex items-center gap-1.5 rounded-full border border-oliva-100 px-3 py-1.5 text-xs font-medium text-oliva-700 hover:border-terracota-400 hover:text-terracota-600 transition-colors"
+                type="submit"
+                className="rounded-full bg-terracota-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
               >
-                <Icon size={14} />
-                {label}
+                Buscar
               </button>
-            ))}
+            </div>
+          </form>
+
+          {/* Fuera del form: son enlaces a una categoría, no filtros de
+              la búsqueda. Dentro, además, un <button> sin type lo
+              enviaría. */}
+          <div className="mt-3 flex flex-wrap gap-2 px-1">
+            {chips.map((categoria) => {
+              const Icono = ICONO_POR_TIPO[categoria.tipo];
+              return (
+                <Link
+                  key={categoria.slug}
+                  href={`/${categoria.slug}`}
+                  className="flex items-center gap-1.5 rounded-full border border-oliva-100 px-3 py-1.5 text-xs font-medium text-oliva-700 hover:border-terracota-400 hover:text-terracota-600 transition-colors"
+                >
+                  {Icono && <Icono size={14} aria-hidden="true" />}
+                  {categoria.nombre}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
