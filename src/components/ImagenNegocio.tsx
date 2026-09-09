@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ImageOff } from "lucide-react";
 import { gradientePara } from "@/lib/gradiente";
+import { atribucionValida } from "@/lib/atribucion";
 
 interface Props {
   negocioId: string;
@@ -33,6 +34,9 @@ export default function ImagenNegocio({
   const [fallo, setFallo] = useState(false);
 
   const src = googlePhotoName ? `/api/foto-negocio/${negocioId}` : imagenPortada;
+  // Google a veces manda un aviso legal en lugar de un autor; en ese
+  // caso esto es null y la etiqueta no se pinta (ver lib/atribucion.ts).
+  const atribucion = atribucionValida(googlePhotoAtribucion);
 
   if (!src || fallo) {
     return (
@@ -53,13 +57,13 @@ export default function ImagenNegocio({
         onError={() => setFallo(true)}
         className="h-full w-full object-cover"
       />
-      {googlePhotoName && googlePhotoAtribucion && (
+      {googlePhotoName && atribucion && (
         <span
           className={`absolute right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] leading-none text-white/90 ${
             posicionAtribucion === "top-right" ? "top-1" : "bottom-1"
           }`}
         >
-          Foto: {googlePhotoAtribucion}
+          Foto: {atribucion}
         </span>
       )}
     </div>
