@@ -70,12 +70,15 @@ export default async function EventosProximos() {
   const hayAlgoHoy = eventos.some((evento) => evento.fecha_inicio < finDeHoy);
 
   return (
-    // -mt-10 monta el arranque de esta banda sobre el borde inferior del
-    // bento grid de Destacados; el pt-4 (menor que el -mt-10) deja que el
-    // propio título "Eventos Próximos" suba y quede solapado con ese
-    // borde, no solo el fondo oscuro. Destacados lleva z-10 para quedar
-    // visualmente por delante en la zona de solape.
-    <AnimatedSection className="-mt-10 bg-oliva-900 pt-4 pb-12">
+    // Antes esta banda llevaba -mt-10 y pt-4 para montarse sobre el borde
+    // inferior del bento de Destacados, que iba justo encima. Ahora va
+    // antes que Destacados y debajo tiene el hero, así que ese solape ya
+    // no aplica: padding normal.
+    //
+    // El pt-10 compensa el sm:-mb-10 del buscador del hero, igual que
+    // hacía el py-10 de Destacados: los 40px negativos y los 40px de
+    // padding se cancelan y el título queda justo bajo la caja.
+    <AnimatedSection className="bg-oliva-900 pt-10 pb-12">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-2xl font-semibold text-tierra-50">

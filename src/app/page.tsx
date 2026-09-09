@@ -26,10 +26,15 @@ export default async function HomePage() {
       <Header />
       <main>
         <Hero categorias={categorias} />
-        <BentoDestacados />
+        {/* Eventos primero: es lo único con fecha, lo único que responde
+            a "qué hago hoy". Destacados es contenido atemporal y queda
+            como plan B. El mapa convierte el "qué hago" en "dónde voy",
+            y la Esencia cierra: es identidad de marca, no ayuda a
+            decidir nada. */}
         <EventosProximos />
-        <EsenciaJaen />
+        <BentoDestacados />
         <MapaExperiencia />
+        <EsenciaJaen />
       </main>
     </>
   );

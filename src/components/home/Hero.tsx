@@ -66,9 +66,14 @@ export default function Hero({ categorias }: Props) {
         </div>
       </div>
 
-      {/* Curva orgánica que rompe la geometría del hero */}
+      {/* Curva orgánica que rompe la geometría del hero. Va del color de
+          la sección siguiente, para leerse como que esa sección muerde el
+          hero. Antes debajo iba Destacados, sobre el fondo claro de la
+          página, y por eso era tierra-50; ahora debajo va la banda de
+          Eventos y tiene que ser oliva-900, o queda una franja crema
+          suelta entre dos zonas oscuras. */}
       <svg
-        className="absolute bottom-0 left-0 w-full text-tierra-50"
+        className="absolute bottom-0 left-0 w-full text-oliva-900"
         viewBox="0 0 1440 80"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -84,10 +89,11 @@ export default function Hero({ categorias }: Props) {
           (Destacados), en vez de quedarse contenido dentro del propio
           hero. Por eso el section ya no lleva overflow-hidden.
 
-          z-20 y no z-10: BentoDestacados también es z-10 y va después en
-          el DOM, así que a igualdad de z-index ganaba ella y recortaba la
-          parte del buscador que invade su franja. Sigue por debajo de la
-          cabecera (z-50), que debe tapar el buscador al hacer scroll.
+          El z-20 mantiene la caja por encima de la sección siguiente,
+          en cuya franja invade, y por debajo de la cabecera (z-50), que
+          sí debe taparla al hacer scroll. Antes esa sección era
+          BentoDestacados, que llevaba z-10 y ganaba por ir después en el
+          DOM; ahora es la banda de Eventos.
 
           El -mb-10 solo a partir de sm: cancela el pt-10 de Destacados,
           así que el título "Destacados en Jaén" queda pegado al borde
