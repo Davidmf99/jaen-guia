@@ -35,6 +35,41 @@ export function fechaEvento(iso: string, esTodoElDia: boolean) {
   return esTodoElDia ? fecha : `${fecha} · ${hour}:${minute}`;
 }
 
+/**
+ * Etiqueta de fecha para una tarjeta, teniendo en cuenta los rangos.
+ *
+ * Una feria del 5 de julio al 25 de octubre sigue vigente hoy, y poner
+ * "05 de jul." en la pestaña de "Hoy" despista: lo que importa es hasta
+ * cuándo se puede ir. Se calcula en el servidor y se pasa ya formateada
+ * a la tarjeta, que es un Client Component: si el "ahora" se calculara
+ * en el cliente, el HTML del servidor y el del navegador no coincidirían.
+ */
+export function etiquetaFecha(
+  fechaInicio: string,
+  fechaFin: string | null,
+  esTodoElDia: boolean,
+  ahora = new Date()
+): string {
+  if (!fechaFin) return fechaEvento(fechaInicio, esTodoElDia);
+
+  if (dia(fechaInicio) === dia(fechaFin)) {
+    return fechaEvento(fechaInicio, esTodoElDia);
+  }
+  if (new Date(fechaInicio) <= ahora) return `Hasta el ${soloFecha(fechaFin)}`;
+  return `Del ${soloFecha(fechaInicio)} al ${soloFecha(fechaFin)}`;
+}
+
+/** Día local en Jaén, para comparar dos instantes sin la hora. */
+function dia(iso: string) {
+  const { day, month, year } = partes(iso);
+  return `${year}-${month}-${day}`;
+}
+
+function soloFecha(iso: string) {
+  const { day, month } = partes(iso);
+  return `${day} de ${month}`;
+}
+
 /** Día y mes sueltos, para el hueco de imagen de los eventos sin foto. */
 export function diaYMes(iso: string) {
   const { day, month } = partes(iso);
@@ -123,7 +158,7 @@ function medianocheMadrid(momento: Date, dias = 0) {
   return `${diaMadrid(base)}T00:00:00${desfaseMadrid(base)}`;
 }
 
-export type CorteTemporal = "hoy" | "finde";
+export type CorteTemporal = "hoy" | "manana" | "finde";
 
 /**
  * Rango [desde, hasta) del corte pedido, en hora de Jaén.
@@ -134,6 +169,12 @@ export type CorteTemporal = "hoy" | "finde";
 export function rangoTemporal(corte: CorteTemporal, ahora = new Date()) {
   if (corte === "hoy") {
     return { desde: ahora.toISOString(), hasta: medianocheMadrid(ahora, 1) };
+  }
+
+  // Mañana es un día entero, no "de aquí a 24 horas": empieza a
+  // medianoche aunque ahora sean las once de la noche.
+  if (corte === "manana") {
+    return { desde: medianocheMadrid(ahora, 1), hasta: medianocheMadrid(ahora, 2) };
   }
 
   // getDay() sobre la fecha local del servidor no vale: se calcula el
@@ -158,4 +199,83 @@ export function rangoTemporal(corte: CorteTemporal, ahora = new Date()) {
  */
 export function filtroEventosEnRango(desde: string) {
   return `fecha_fin.gte.${desde},and(fecha_fin.is.null,fecha_inicio.gte.${desde})`;
+}
+
+// ---------------------------------------------------------------------
+// Entrada de fechas desde el panel
+// ---------------------------------------------------------------------
+
+/**
+ * Pasa el valor de un `<input type="datetime-local">` ("2026-09-15T20:00")
+ * a ISO UTC interpretándolo SIEMPRE en hora de Jaén.
+ *
+ * Sin esto la fecha se interpretaría en la zona del servidor —en Vercel,
+ * UTC— y un evento de las 22:00 se guardaría como las 22:00 UTC, o sea
+ * las doce de la noche en Jaén.
+ *
+ * El desfase se calcula sobre el propio instante, así que el cambio de
+ * hora solo puede desviar una hora a un evento que caiga dentro de la
+ * madrugada del último domingo de marzo u octubre.
+ */
+export function isoDesdeHoraJaen(valorLocal: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(valorLocal)) return null;
+
+  const aproximado = new Date(`${valorLocal}:00Z`);
+  if (Number.isNaN(aproximado.getTime())) return null;
+
+  const fecha = new Date(`${valorLocal}:00${desfaseMadrid(aproximado)}`);
+  return Number.isNaN(fecha.getTime()) ? null : fecha.toISOString();
+}
+
+/** Medianoche en Jaén del día de un `<input type="date">`, en ISO UTC. */
+export function isoDiaCompletoJaen(valorFecha: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valorFecha)) return null;
+  return isoDesdeHoraJaen(`${valorFecha}T00:00`);
+}
+
+// FORMATO no vale aquí: da el mes abreviado ("sept.") y un
+// datetime-local necesita "09".
+const FORMATO_INPUT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ZONA,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** "2026-09-15T20:00" en hora de Jaén, para rellenar un datetime-local. */
+export function horaJaenParaInput(iso: string): string {
+  const p = Object.fromEntries(
+    FORMATO_INPUT.formatToParts(new Date(iso)).map((x) => [x.type, x.value])
+  ) as Partes;
+  // en-CA devuelve la medianoche como "24"; el input espera "00".
+  const hora = p.hour === "24" ? "00" : p.hour;
+  return `${p.year}-${p.month}-${p.day}T${hora}:${p.minute}`;
+}
+
+// ---------------------------------------------------------------------
+// Crédito a la agenda de origen
+// ---------------------------------------------------------------------
+
+/**
+ * Datos para el "vía EnJaén.es" de la tarjeta.
+ *
+ * El enlace va a la portada de la agenda y no a la ficha concreta
+ * (`fuente_url`, que se enlaza desde la página del evento): en la
+ * tarjeta el título ya lleva al detalle nuestro, y dos enlaces
+ * externos ahí compiten con él.
+ */
+export function creditoFuente(
+  fuenteNombre: string | null,
+  fuenteUrl: string | null
+): { nombre: string; sitio: string } | null {
+  if (!fuenteNombre || !fuenteUrl) return null;
+
+  try {
+    return { nombre: fuenteNombre, sitio: new URL(fuenteUrl).origin };
+  } catch {
+    return null;
+  }
 }

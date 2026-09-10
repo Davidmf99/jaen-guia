@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Header from "@/components/layout/Header";
 import Hero from "@/components/home/Hero";
 import BentoDestacados from "@/components/home/BentoDestacados";
 import EventosProximos from "@/components/home/EventosProximos";
@@ -23,7 +22,6 @@ export default async function HomePage() {
 
   return (
     <>
-      <Header />
       <main>
         <Hero categorias={categorias} />
         {/* Eventos primero: es lo único con fecha, lo único que responde

@@ -1,28 +1,14 @@
 import Link from "next/link";
-import { MapPinOff } from "lucide-react";
+import { MapPinOff, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import EstadoVacio from "./EstadoVacio";
 import MapaImprescindibles from "./MapaImprescindibles";
 import type { PuntoMapa } from "./MapaLeaflet";
 
-// Componente de servidor: antes era "use client" solo para poder hacer
-// el dynamic() de Leaflet, y por eso los datos estaban hardcodeados. El
-// dynamic() vive ahora en MapaImprescindibles, así que aquí ya se puede
-// consultar Supabase.
 async function getImprescindibles(): Promise<PuntoMapa[]> {
   const supabase = await createClient();
 
-  // Una sola consulta para el mapa Y para la lista: antes eran dos
-  // constantes distintas (PUNTOS_MOCK e IMPRESCINDIBLES_MOCK) que se
-  // contradecían entre sí — los marcadores incluían "Mesón Panaceite" y
-  // la lista, "Baños Árabes".
-  //
-  // Sin lat o lng no se puede pintar el marcador: filtrarlos aquí evita
-  // que Leaflet los coloque en el (0,0), en el golfo de Guinea.
-  //
-  // El filtro de activo lo aplica ya la RLS de negocios
-  // ("Negocios visibles para todos" using activo = true).
   const { data, error } = await supabase
     .from("negocios")
     .select("nombre, slug, lat, lng")
@@ -46,41 +32,51 @@ export default async function MapaExperiencia() {
   const puntos = await getImprescindibles();
 
   return (
-    <AnimatedSection className="bg-tierra-200 py-16">
+    <AnimatedSection className="py-24">
       <div className="mx-auto max-w-6xl px-6">
+        
+        <div className="mb-10 max-w-2xl">
+          <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-oliva-900 mb-3">
+            Mapa de la Experiencia
+          </h2>
+          <p className="text-lg text-oliva-600">
+            Los lugares imprescindibles que no puedes perderte en tu visita a Jaén.
+          </p>
+        </div>
+
         {puntos.length === 0 ? (
           <EstadoVacio
             mensaje="Todavía no hay lugares imprescindibles en el mapa"
             icono={MapPinOff}
           />
         ) : (
-          /* 1 columna en mobile (mapa arriba, lista debajo); a partir de
-             md, 2 columnas reales lado a lado (grid-cols-5 solo para
-             repartir 3/2 en vez de un 50/50 exacto, no como cuadrícula de
-             5 elementos). */
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-            <div className="md:col-span-3">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 rounded-[2rem] bg-white p-4 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100">
+            <div className="lg:col-span-8 overflow-hidden rounded-[1.5rem] bg-tierra-50 border border-oliva-100/50">
               <MapaImprescindibles puntos={puntos} />
             </div>
 
-            <aside className="rounded-2xl bg-white p-4 shadow-sm md:col-span-2">
-              <h3 className="font-display text-lg font-semibold text-oliva-900">
-                Mapa de la Experiencia
+            <aside className="lg:col-span-4 flex flex-col justify-center px-2 py-4 md:px-6">
+              <h3 className="font-sans text-xl font-bold text-oliva-900 mb-6">
+                Ruta recomendada
               </h3>
-              <p className="mt-1 text-xs font-medium text-oliva-600">
-                Lugares Imprescindibles
-              </p>
-              <ol className="mt-2 space-y-2 text-sm text-oliva-700">
+              <ol className="flex flex-col gap-4">
                 {puntos.map((punto, i) => (
-                  <li key={punto.slug ?? punto.nombre} className="flex gap-2">
-                    <span className="font-semibold text-terracota-600">
-                      {i + 1}.
-                    </span>
+                  <li key={punto.slug ?? punto.nombre} className="group relative">
                     <Link
                       href={`/negocio/${punto.slug}`}
-                      className="hover:text-terracota-600 transition-colors"
+                      className="flex items-start gap-4 rounded-2xl p-3 -mx-3 hover:bg-tierra-50 transition-colors"
                     >
-                      {punto.nombre}
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oliva-100 text-sm font-bold text-oliva-900 group-hover:bg-terracota-500 group-hover:text-white transition-colors">
+                        {i + 1}
+                      </span>
+                      <div className="flex flex-col pt-1">
+                        <span className="font-semibold text-oliva-900 group-hover:text-terracota-600 transition-colors">
+                          {punto.nombre}
+                        </span>
+                        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-terracota-500 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+                          Ver detalles <ArrowRight size={12} />
+                        </span>
+                      </div>
                     </Link>
                   </li>
                 ))}

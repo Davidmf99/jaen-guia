@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX } from "lucide-react";
-import Header from "@/components/layout/Header";
 import NegocioCard from "@/components/home/NegocioCard";
 import GridStagger from "@/components/motion/GridStagger";
 import { createClient } from "@/lib/supabase/server";
@@ -34,24 +33,36 @@ interface NegocioRow {
  * Se quitan los comodines de LIKE: un "%" suelto haría que la búsqueda
  * devolviera el catálogo entero, y un "_" casaría con cualquier letra.
  */
+
+function normalizaTexto(texto: string) {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function limpiarConsulta(bruta: string | undefined) {
   if (!bruta) return "";
   return bruta.trim().slice(0, MAX_LONGITUD_CONSULTA).replace(/[%_]/g, "");
 }
 
+
 async function buscarNegocios(consulta: string) {
   const supabase = await createClient();
+  
+  // Buscamos tanto en nombre original como en normalizado por seguridad
+  const searchTerm = `%${consulta}%`;
+  const normalizedTerm = `%${normalizaTexto(consulta)}%`;
+  
   const { data, error } = await supabase
     .from("negocios")
     .select(
       "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias(nombre), resenas(puntuacion)"
     )
-    .ilike("nombre", `%${consulta}%`)
+    .or(`nombre.ilike.${searchTerm},nombre_normalizado.ilike.${normalizedTerm}`)
     .order("nombre", { ascending: true })
     .limit(MAX_RESULTADOS)
     .returns<NegocioRow[]>();
 
   if (error || !data) return [];
+
 
   return data.map((negocio) => ({
     id: negocio.id,
@@ -99,74 +110,96 @@ export default async function BuscarPage({ searchParams }: PageProps) {
     esFavorito: favoritoIds.has(negocio.id),
   }));
 
+
   return (
     <>
-      <Header />
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <header className="mb-8 max-w-2xl">
-          <h1 className="font-display text-3xl font-semibold text-oliva-900">
-            {consulta ? <>Resultados para &laquo;{consulta}&raquo;</> : "Buscar"}
-          </h1>
-          {consulta && (
-            <p className="mt-2 text-oliva-700">
-              {resultados.length === 0
-                ? "Ningún negocio coincide con esa búsqueda."
-                : `${resultados.length} ${
-                    resultados.length === 1 ? "negocio" : "negocios"
-                  }${resultados.length === MAX_RESULTADOS ? " (primeros resultados)" : ""}`}
-            </p>
-          )}
+      <main className="min-h-screen bg-tierra-50 pt-24 pb-24">
+        
+        <header className="relative overflow-hidden pt-12 pb-16 md:pt-20 md:pb-20">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+          <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
+            <span className="mb-4 inline-block rounded-full border border-terracota-500/20 bg-terracota-500/10 px-4 py-1.5 text-xs font-bold tracking-[0.2em] uppercase text-terracota-600">
+              Buscador
+            </span>
+            <h1 className="font-display text-5xl md:text-7xl leading-tight tracking-tight text-oliva-950 mb-6">
+              {consulta ? <>Resultados para <span className="text-terracota-500">«{consulta}»</span></> : "Encuentra tu próximo plan."}
+            </h1>
+            {consulta && (
+              <p className="mx-auto max-w-2xl text-lg text-oliva-700 font-medium">
+                {resultados.length === 0
+                  ? "No hemos encontrado ningún lugar que coincida."
+                  : `${resultados.length} ${
+                      resultados.length === 1 ? "lugar encontrado" : "lugares encontrados"
+                    }${resultados.length === MAX_RESULTADOS ? " (mostrando los primeros)" : ""}`}
+              </p>
+            )}
+          </div>
         </header>
 
-        {/* Buscar de nuevo sin tener que volver a la home. */}
-        <form action="/buscar" method="get" className="mb-8 flex max-w-md gap-2">
-          <label htmlFor="q" className="sr-only">
-            Buscar negocios
-          </label>
-          <input
-            id="q"
-            name="q"
-            type="search"
-            required
-            defaultValue={consulta}
-            placeholder="¿Qué quieres descubrir?"
-            className="flex-1 rounded-full border border-oliva-100 px-4 py-2 text-sm outline-none focus:border-oliva-400"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-terracota-500 px-5 py-2 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
-          >
-            Buscar
-          </button>
-        </form>
-
-        {resultados.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50 px-6 py-12 text-center">
-            <SearchX size={28} aria-hidden="true" className="text-oliva-400" />
-            <p className="font-display text-base text-oliva-700">
-              {consulta
-                ? "No hemos encontrado ningún negocio con ese nombre"
-                : "Escribe algo para empezar a buscar"}
-            </p>
-            <Link
-              href="/destacados"
-              className="text-sm font-semibold text-terracota-600 hover:underline"
-            >
-              Ver los destacados de Jaén &rsaquo;
-            </Link>
-          </div>
-        ) : (
-          <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {resultados.map((negocio, i) => (
-              <NegocioCard
-                key={negocio.slug}
-                negocio={negocio}
-                rutaActual={`/buscar?q=${encodeURIComponent(consulta)}`}
-                index={i}
+        <div className="mx-auto max-w-6xl px-6 mb-16">
+          <div className="mx-auto max-w-2xl">
+            <form action="/buscar" method="get" className="relative group">
+              <label htmlFor="q" className="sr-only">
+                Buscar negocios
+              </label>
+              <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+                <SearchX size={20} className={`transition-colors ${consulta && resultados.length === 0 ? "text-terracota-500" : "text-oliva-400 group-focus-within:text-terracota-500"}`} />
+              </div>
+              <input
+                id="q"
+                name="q"
+                type="search"
+                required
+                defaultValue={consulta}
+                placeholder="¿Qué quieres descubrir?"
+                className="w-full rounded-full border border-oliva-100 bg-white py-4 pl-14 pr-32 text-lg text-oliva-900 placeholder:text-oliva-400 outline-none focus:border-terracota-400 focus:ring-4 focus:ring-terracota-500/10 transition-all shadow-sm"
               />
-            ))}
-          </GridStagger>
-        )}
+              <div className="absolute inset-y-0 right-2 flex items-center">
+                <button
+                  type="submit"
+                  className="rounded-full bg-oliva-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
+                >
+                  Buscar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-6xl px-6">
+          {resultados.length === 0 ? (
+            <div className="mx-auto max-w-2xl flex flex-col items-center gap-4 rounded-[2rem] border border-oliva-100 bg-white p-16 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-tierra-50 mb-2">
+                <SearchX size={32} className="text-oliva-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-oliva-900">
+                {consulta ? "Sin resultados" : "Empieza a buscar"}
+              </h2>
+              <p className="text-lg text-oliva-600 max-w-sm mb-4">
+                {consulta
+                  ? "Prueba con términos más generales o busca por zona o categoría."
+                  : "Descubre los mejores rincones de la provincia."}
+              </p>
+              <Link
+                href="/destacados"
+                className="rounded-full bg-tierra-50 px-6 py-3 font-bold text-terracota-600 hover:bg-terracota-500 hover:text-white transition-colors"
+              >
+                Ver lugares destacados
+              </Link>
+            </div>
+          ) : (
+            <GridStagger key={consulta} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {resultados.map((negocio, i) => (
+                <NegocioCard
+                  key={negocio.slug}
+                  negocio={negocio}
+                  rutaActual={`/buscar?q=${encodeURIComponent(consulta)}`}
+                  index={i}
+                />
+              ))}
+            </GridStagger>
+          )}
+        </div>
       </main>
     </>
   );

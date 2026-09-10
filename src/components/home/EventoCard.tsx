@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "motion/react";
-import { MapPin } from "lucide-react";
-import { fechaEvento } from "@/lib/eventos";
+import { MapPin, Store } from "lucide-react";
 import ImagenEvento from "./ImagenEvento";
 import type { Categoria } from "@/types";
 
@@ -22,11 +21,17 @@ export interface EventoTarjeta {
   slug: string;
   titulo: string;
   fecha_inicio: string;
+  /** Ya formateada en el servidor: "10 de sept. 2026 · 22:00", "Hasta el 25 de oct."… */
+  fechaTexto: string;
   es_todo_el_dia: boolean;
   es_gratis: boolean;
   imagen: string | null;
   /** lugar_nombre del evento o, si cuelga de un negocio, el del negocio. */
   lugar: string | null;
+  /** Nombre del negocio que lo publica; null en la agenda oficial. */
+  organizador: string | null;
+  /** Agenda de la que viene el evento, cuando lo trae la sincronización. */
+  fuente: { nombre: string; sitio: string } | null;
   categoriaNombre: string | null;
   categoriaTipo: Categoria["tipo"] | null;
 }
@@ -77,9 +82,9 @@ export default function EventoCard({ evento, index = 0 }: Props) {
 
       <div className="p-4">
         <p className="text-xs font-medium text-terracota-600">
-          {fechaEvento(evento.fecha_inicio, evento.es_todo_el_dia)}
+          {evento.fechaTexto}
         </p>
-        <h3 className="mt-1 font-display text-base font-semibold leading-snug text-oliva-900">
+        <h3 className="mt-1 font-sans text-lg font-bold tracking-tight leading-snug text-oliva-900">
           <Link
             href={`/evento/${evento.slug}`}
             className="hover:text-terracota-600 transition-colors"
@@ -91,6 +96,33 @@ export default function EventoCard({ evento, index = 0 }: Props) {
           <p className="mt-1.5 flex items-center gap-1 text-sm text-oliva-700">
             <MapPin size={13} aria-hidden="true" className="shrink-0 text-oliva-400" />
             <span className="truncate">{evento.lugar}</span>
+          </p>
+        )}
+
+        {/* Solo los eventos publicados por el propio local. Distingue de un
+            vistazo lo que cuenta un bar de lo que viene de agenda oficial. */}
+        {evento.organizador && (
+          <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-terracota-600">
+            <Store size={12} aria-hidden="true" className="shrink-0" />
+            <span className="truncate">Organizado por {evento.organizador}</span>
+          </p>
+        )}
+
+        {/* Crédito a la agenda de origen. Va enlazado a su web y se suma
+            al enlace a la ficha concreta, que está en la página del
+            evento. Sale de la tarjeta, no del detalle, porque es donde
+            la mayoría de la gente ve el evento. */}
+        {evento.fuente && (
+          <p className="mt-2 text-xs text-oliva-500">
+            vía{" "}
+            <a
+              href={evento.fuente.sitio}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-oliva-600 underline decoration-oliva-200 underline-offset-2 hover:text-terracota-600"
+            >
+              {evento.fuente.nombre}
+            </a>
           </p>
         )}
       </div>

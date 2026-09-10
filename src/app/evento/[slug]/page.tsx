@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Store, Ticket } from "lucide-react";
-import Header from "@/components/layout/Header";
+import { CalendarDays, ExternalLink, MapPin, Store, Ticket } from "lucide-react";
 import ImagenEvento from "@/components/home/ImagenEvento";
 import { createClient } from "@/lib/supabase/server";
 import { fechaEvento } from "@/lib/eventos";
@@ -22,6 +21,8 @@ interface EventoFichaRow {
   imagen: string | null;
   lugar_nombre: string | null;
   direccion: string | null;
+  fuente_nombre: string | null;
+  fuente_url: string | null;
   categoria: { nombre: string; slug: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string; slug: string } | null;
 }
@@ -40,7 +41,7 @@ const getEvento = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("eventos")
     .select(
-      "id, slug, titulo, descripcion, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, precio_texto, imagen, lugar_nombre, direccion, categoria:categorias(nombre, slug, tipo), negocio:negocios(nombre, slug)"
+      "id, slug, titulo, descripcion, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, precio_texto, imagen, lugar_nombre, direccion, fuente_nombre, fuente_url, categoria:categorias(nombre, slug, tipo), negocio:negocios(nombre, slug)"
     )
     .eq("slug", slug)
     .eq("estado", "publicado")
@@ -97,7 +98,6 @@ export default async function EventoPage({ params }: PageProps) {
 
   return (
     <>
-      <Header />
       <main>
         <div className="relative h-64 w-full overflow-hidden md:h-80">
           <ImagenEvento
@@ -188,6 +188,25 @@ export default async function EventoPage({ params }: PageProps) {
           {evento.descripcion && (
             <p className="mt-6 whitespace-pre-line text-oliva-700">
               {evento.descripcion}
+            </p>
+          )}
+
+          {/* Enlace a la ficha original de la agenda de la que viene el
+              evento: aquí sí es el enlace directo, no la portada. */}
+          {evento.fuente_nombre && evento.fuente_url && (
+            <p className="mt-6 flex items-center gap-1.5 text-sm text-oliva-600">
+              <ExternalLink size={15} aria-hidden="true" className="shrink-0 text-oliva-400" />
+              <span>
+                Información publicada por{" "}
+                <a
+                  href={evento.fuente_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-terracota-600 hover:underline"
+                >
+                  {evento.fuente_nombre}
+                </a>
+              </span>
             </p>
           )}
 

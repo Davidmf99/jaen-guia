@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import Footer from "@/components/layout/Footer";
+import Header from "@/components/layout/Header";
+import BarraProgreso from "@/components/layout/BarraProgreso";
 
 // Nota: en un entorno con acceso a internet, sustituye esto por
 // `next/font/google` con Fraunces (título) e Inter (cuerpo), tal y como
@@ -32,7 +35,16 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased">
       <body className="min-h-full flex flex-col font-sans">
-        {children}
+        {/* Suspense porque BarraProgreso lee los search params: sin él, las
+            páginas estáticas pasarían a renderizarse en cliente. */}
+        <Suspense fallback={null}>
+          <BarraProgreso />
+        </Suspense>
+        {/* La cabecera vive en el layout, no en cada página: así se queda
+            fija mientras carga la ruta siguiente (los `loading.tsx` solo
+            sustituyen a la página) y el footer no sube. */}
+        <Header />
+        <div className="flex flex-1 flex-col">{children}</div>
         <Footer />
       </body>
     </html>

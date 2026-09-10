@@ -1,58 +1,44 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import ParallaxLayer from "@/components/motion/ParallaxLayer";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 
 export default function EsenciaJaen() {
   return (
-    // Fondo: sustituye el bg-gradient de ParallaxLayer por una foto real
-    // de olivares (subida a /public/images/olivares.jpg o Supabase
-    // Storage). Mientras tanto, un degradado de la paleta + una textura
-    // de "filas de olivos" en SVG mantienen la sección con identidad
-    // visual propia; ambos se mueven juntos con el parallax.
-    <AnimatedSection className="relative h-72 overflow-hidden">
-      <ParallaxLayer className="bg-gradient-to-br from-oliva-600 via-oliva-700 to-oliva-900">
-        <svg
-          className="absolute inset-0 h-full w-full opacity-20"
-          preserveAspectRatio="none"
-          viewBox="0 0 400 200"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 8 }).map((_, fila) => (
-            <g key={fila}>
-              {Array.from({ length: 12 }).map((_, col) => (
-                <circle
-                  key={col}
-                  cx={col * 36 + (fila % 2 === 0 ? 0 : 18)}
-                  cy={fila * 28 + 10}
-                  r={6}
-                  fill="var(--color-tierra-100)"
-                />
-              ))}
-            </g>
-          ))}
-        </svg>
-      </ParallaxLayer>
-      <div className="absolute inset-0 bg-gradient-to-t from-oliva-900/90 via-oliva-900/40 to-transparent" />
-      {/* max-w-6xl px-6 como el resto de la página: al pasar esta sección
-          al final quedó pegada al footer, y su antiguo px-8 a sangre
-          desalineaba el texto respecto a todo lo demás. */}
-      <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-end px-6 pb-8 text-white">
-        <h2 className="font-display text-2xl font-semibold">
-          La Esencia de Jaén
-        </h2>
-        <p className="mt-1 max-w-md text-sm text-tierra-100">
-          Un paisaje patrimonio de la humanidad, cultura milenaria y vida.
-          Sumérgete en el mayor olivar del mundo.
-        </p>
-        {/* La sección era 288px de alto sin una sola cosa que hacer.
-            Ahora cierra la portada llevando a la categoría de la que
-            habla, en vez de dejar al usuario en un callejón. */}
-        <Link
-          href="/naturaleza"
-          className="mt-4 inline-block w-fit rounded-full bg-terracota-500 px-4 py-2 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
-        >
-          Descubre el mar de olivos &rsaquo;
-        </Link>
+    <AnimatedSection className="py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="group relative overflow-hidden rounded-[2.5rem] bg-oliva-900 px-8 py-24 md:py-32 text-center shadow-2xl">
+          
+          {/* Fondo moderno: glow en vez de puntos fríos */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] max-w-[1000px] bg-[radial-gradient(ellipse_at_top,rgba(138,154,91,0.2)_0%,transparent_70%)] pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_bottom_right,rgba(201,111,58,0.15)_0%,transparent_60%)] pointer-events-none" />
+
+          {/* Textura sutil para darle calidad de material (ruido/grain) */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.04] mix-blend-overlay pointer-events-none" />
+
+          <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center justify-center text-white">
+            <span className="mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-bold tracking-[0.2em] uppercase text-oliva-100 backdrop-blur-sm">
+              Identidad
+            </span>
+            <h2 className="font-display text-5xl md:text-7xl font-semibold tracking-tight mb-6">
+              La Esencia de Jaén
+            </h2>
+            <p className="mb-10 text-lg md:text-xl text-oliva-100/90 leading-relaxed">
+              Un paisaje patrimonio de la humanidad, cultura milenaria y vida.
+              Sumérgete en el mayor olivar del mundo y descubre nuestras raíces.
+            </p>
+            
+            <Link
+              href="/naturaleza"
+              className="relative overflow-hidden rounded-full bg-white px-8 py-4 text-sm font-bold text-oliva-900 transition-transform hover:scale-[1.03] active:scale-[0.97] shadow-[0_0_40px_rgba(255,255,255,0.1)]"
+            >
+              <span className="flex items-center gap-2">
+                Descubre el mar de olivos
+                <ArrowRight size={16} strokeWidth={2.5} />
+              </span>
+            </Link>
+          </div>
+        </div>
       </div>
     </AnimatedSection>
   );

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import Header from "@/components/layout/Header";
 import { createClient } from "@/lib/supabase/server";
+import BotonEnviar from "@/components/ui/BotonEnviar";
 
 export const metadata: Metadata = {
   title: "Iniciar sesión · Jaén Guía",
@@ -32,69 +32,78 @@ interface PageProps {
 export default async function LoginPage({ searchParams }: PageProps) {
   const { error } = await searchParams;
 
+
   return (
     <>
-      <Header />
-      <main className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-6 py-12">
-        <h1 className="font-display text-3xl font-semibold text-oliva-900">
-          Iniciar sesión
-        </h1>
-        <p className="mt-2 text-oliva-700">
-          Accede para dejar reseñas y guardar tus favoritos.
-        </p>
+      <main className="min-h-screen bg-tierra-50 flex flex-col items-center pt-24 pb-20 px-6">
+        
+        <div className="w-full max-w-md text-center mb-10">
+          <h1 className="font-display text-5xl md:text-6xl tracking-tight text-oliva-900 mb-4">
+            Bienvenido.
+          </h1>
+          <p className="text-lg text-oliva-700">
+            Accede para dejar reseñas y guardar tus lugares favoritos de Jaén.
+          </p>
+        </div>
 
-        <form
-          action={iniciarSesion}
-          className="mt-8 space-y-4 rounded-2xl bg-white p-6 shadow-sm"
-        >
-          <div>
-            <label htmlFor="email" className="text-sm font-medium text-oliva-700">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="text-sm font-medium text-oliva-700">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
-            />
-          </div>
-
-          {error && (
-            <p className="rounded-xl border border-terracota-400 px-3 py-2 text-sm text-terracota-600">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            className="w-full rounded-full bg-terracota-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+        <div className="w-full max-w-md rounded-[2rem] bg-white p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100">
+          <form
+            action={iniciarSesion}
+            className="space-y-5"
           >
-            Entrar
-          </button>
-        </form>
+            <div>
+              <label htmlFor="email" className="text-sm font-bold tracking-wide uppercase text-terracota-600 mb-2 block">
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="w-full rounded-2xl border border-oliva-100 bg-tierra-50 px-4 py-3 text-base text-oliva-900 outline-none focus:border-terracota-400 focus:bg-white transition-all"
+              />
+            </div>
 
-        <p className="mt-4 text-center text-sm text-oliva-700">
-          ¿No tienes cuenta?{" "}
-          <Link href="/registro" className="font-medium text-terracota-600 hover:underline">
-            Regístrate
-          </Link>
-        </p>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="text-sm font-bold tracking-wide uppercase text-terracota-600 block">
+                  Contraseña
+                </label>
+              </div>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="w-full rounded-2xl border border-oliva-100 bg-tierra-50 px-4 py-3 text-base text-oliva-900 outline-none focus:border-terracota-400 focus:bg-white transition-all"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-2xl bg-terracota-500/10 border border-terracota-500/20 px-4 py-3">
+                <p className="text-sm font-semibold text-terracota-600 text-center">
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <BotonEnviar
+              textoEnviando="Entrando…"
+              className="mt-4 w-full rounded-full bg-oliva-900 px-4 py-3.5 text-sm font-bold text-white hover:bg-terracota-600 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md"
+            >
+              Entrar
+            </BotonEnviar>
+          </form>
+
+          <p className="mt-8 text-center text-sm font-medium text-oliva-600">
+            ¿No tienes cuenta?{" "}
+            <Link href="/registro" className="font-bold text-terracota-600 hover:text-terracota-500 transition-colors">
+              Regístrate aquí
+            </Link>
+          </p>
+        </div>
       </main>
     </>
   );

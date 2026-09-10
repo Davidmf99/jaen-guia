@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import Header from "@/components/layout/Header";
 import EstadoVacio from "@/components/home/EstadoVacio";
+import EventosNegocio, { type EventoPanel } from "@/components/panel/EventosNegocio";
 import { createClient } from "@/lib/supabase/server";
+import { filtroEventosVigentes } from "@/lib/eventos";
 
 export const metadata: Metadata = {
   title: "Panel de negocio · Jaén Guía",
@@ -32,13 +33,20 @@ interface NegocioPanel {
   slug: string;
   nombre: string;
   descripcion: string | null;
+  direccion: string | null;
+  categoria_id: string | null;
   telefono: string | null;
   web: string | null;
   horario: Record<string, string> | null;
   imagen_portada: string | null;
 }
 
-export default async function PanelPage() {
+interface PageProps {
+  searchParams: Promise<{ ok?: string; error?: string }>;
+}
+
+export default async function PanelPage({ searchParams }: PageProps) {
+  const { ok, error } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -64,11 +72,30 @@ export default async function PanelPage() {
   const { data: negocio } = await supabase
     .from("negocios")
     .select(
-      "id, slug, nombre, descripcion, telefono, web, horario, imagen_portada"
+      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada"
     )
     .eq("propietario_id", user.id)
     .maybeSingle()
     .returns<NegocioPanel>();
+
+  // Las mismas secciones que usa la navegación del sitio, para que un
+  // evento de un bar caiga en "Gastronomía" y no en un catálogo aparte.
+  const { data: categorias } = await supabase
+    .from("categorias")
+    .select("id, nombre")
+    .order("orden")
+    .returns<{ id: string; nombre: string }[]>();
+
+  const { data: eventos } = negocio
+    ? await supabase
+        .from("eventos")
+        .select("id, slug, titulo, fecha_inicio, es_todo_el_dia, lugar_nombre")
+        .eq("negocio_id", negocio.id)
+        .eq("origen", "negocio")
+        .or(filtroEventosVigentes())
+        .order("fecha_inicio", { ascending: true })
+        .returns<EventoPanel[]>()
+    : { data: [] as EventoPanel[] };
 
   async function actualizarNegocio(formData: FormData) {
     "use server";
@@ -126,7 +153,6 @@ export default async function PanelPage() {
 
   return (
     <>
-      <Header />
       <main className="mx-auto max-w-2xl px-6 py-10">
         <header className="mb-8">
           <h1 className="font-display text-3xl font-semibold text-oliva-900">
@@ -136,6 +162,19 @@ export default async function PanelPage() {
             Edita la ficha pública de tu negocio en Jaén Guía.
           </p>
         </header>
+
+        {(ok || error) && (
+          <p
+            role="status"
+            className={`mb-6 rounded-2xl px-4 py-3 text-sm font-semibold ${
+              error
+                ? "bg-terracota-500/10 text-terracota-600"
+                : "bg-oliva-100 text-oliva-900"
+            }`}
+          >
+            {error ?? ok}
+          </p>
+        )}
 
         {!negocio ? (
           <EstadoVacio mensaje="Tu perfil aún no tiene ningún negocio asociado. Contacta con el equipo de Jaén Guía para vincularlo." />
@@ -252,6 +291,14 @@ export default async function PanelPage() {
               Guardar cambios
             </button>
           </form>
+        )}
+
+        {negocio && (
+          <EventosNegocio
+            negocio={negocio}
+            categorias={categorias ?? []}
+            eventos={eventos ?? []}
+          />
         )}
       </main>
     </>

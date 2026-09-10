@@ -5,6 +5,12 @@ const SECCIONES = [
   { href: "/eventos", label: "Eventos" },
   { href: "/destacados", label: "Destacados" },
   { href: "/buscar", label: "Buscar" },
+  { href: "/contacto", label: "Contacto" },
+];
+
+const LEGAL = [
+  { href: "/aviso-legal", label: "Aviso legal" },
+  { href: "/privacidad", label: "Privacidad" },
 ];
 
 // Componente de servidor: las categorías salen de la base, igual que en
@@ -70,22 +76,39 @@ export default async function Footer() {
           <p className="text-sm font-semibold text-oliva-900">Tu negocio</p>
           <p className="mt-2 text-sm text-oliva-700">
             ¿Tienes un negocio en Jaén y quieres aparecer aquí? Crea tu
-            cuenta y el equipo de Jaén Guía la vincula con tu ficha.
+            cuenta o escríbenos para que el equipo vincule tu ficha.
           </p>
-          <Link
-            href="/registro"
-            className="mt-3 inline-block rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
-          >
-            Crear cuenta
-          </Link>
+          <div className="mt-3 flex gap-2">
+            <Link
+              href="/registro"
+              className="inline-block rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
+            >
+              Crear cuenta
+            </Link>
+            <Link
+              href="/contacto"
+              className="inline-block rounded-full bg-terracota-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-terracota-600 transition-colors"
+            >
+              Contacto
+            </Link>
+          </div>
         </div>
       </div>
 
       <div className="border-t border-oliva-100">
-        <div className="mx-auto max-w-6xl px-6 py-4">
+        <div className="mx-auto flex flex-col md:flex-row items-center justify-between gap-4 max-w-6xl px-6 py-4">
           <p className="text-xs text-oliva-600">
             &copy; {anio} Jaén Guía
           </p>
+          <ul className="flex items-center gap-4 text-xs text-oliva-600">
+            {LEGAL.map((enlace) => (
+              <li key={enlace.href}>
+                <Link href={enlace.href} className="hover:text-oliva-900 transition-colors">
+                  {enlace.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </footer>

@@ -1,10 +1,16 @@
-import Link from "next/link";
-import { CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getMunicipioCapitalId } from "@/lib/municipios";
 import AnimatedSection from "@/components/motion/AnimatedSection";
-import GridStagger from "@/components/motion/GridStagger";
-import EventoCard, { type EventoTarjeta } from "./EventoCard";
-import { filtroEventosVigentes, rangoTemporal } from "@/lib/eventos";
+import AgendaCortes, { type GrupoAgenda } from "./AgendaCortes";
+import type { EventoTarjeta } from "./EventoCard";
+import {
+  creditoFuente,
+  etiquetaFecha,
+  filtroEventosEnRango,
+  filtroEventosVigentes,
+  rangoTemporal,
+  type CorteTemporal,
+} from "@/lib/eventos";
 import type { Categoria } from "@/types";
 
 // Dos filas completas de la rejilla de 3 columnas.
@@ -15,28 +21,50 @@ interface EventoRow {
   slug: string;
   titulo: string;
   fecha_inicio: string;
+  fecha_fin: string | null;
   es_todo_el_dia: boolean;
   es_gratis: boolean;
   imagen: string | null;
   lugar_nombre: string | null;
+  origen: string;
+  fuente_nombre: string | null;
+  fuente_url: string | null;
   categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string } | null;
 }
 
-async function getEventosProximos(): Promise<EventoTarjeta[]> {
+/**
+ * Eventos de un corte temporal, o los próximos vigentes si no se pasa
+ * ninguno. Solo 'publicado': los borradores ya los esconde la RLS, pero
+ * 'cancelado' y 'aplazado' sí son públicos y no pintan nada en una lista
+ * de "qué hago hoy" sin una etiqueta que explique su estado.
+ */
+async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
   const supabase = await createClient();
+  const capitalId = await getMunicipioCapitalId();
 
-  // Solo 'publicado': los borradores ya los esconde la RLS, pero
-  // 'cancelado' y 'aplazado' sí son públicos y no pintan nada en una
-  // lista de "próximos" sin una etiqueta que explique su estado.
-  //
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("eventos")
     .select(
-      "id, slug, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
+      "id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
     )
-    .eq("estado", "publicado")
-    .or(filtroEventosVigentes())
+    .eq("estado", "publicado");
+
+  // Fase capital: los eventos de la provincia (los que trae la Agenda
+  // Cultural de Andalucía de Martos, Villacarrillo, Bailén…) se quedan
+  // guardados, pero aquí no se listan todavía.
+  consulta = consulta.eq("municipio_id", capitalId);
+
+  if (corte) {
+    // Un corte ya es un subconjunto de los vigentes: rangoTemporal() nunca
+    // devuelve un `desde` anterior a ahora.
+    const { desde, hasta } = rangoTemporal(corte);
+    consulta = consulta.lt("fecha_inicio", hasta).or(filtroEventosEnRango(desde));
+  } else {
+    consulta = consulta.or(filtroEventosVigentes());
+  }
+
+  const { data, error } = await consulta
     .order("fecha_inicio", { ascending: true })
     .limit(MAX_EVENTOS)
     .returns<EventoRow[]>();
@@ -48,6 +76,11 @@ async function getEventosProximos(): Promise<EventoTarjeta[]> {
     slug: evento.slug,
     titulo: evento.titulo,
     fecha_inicio: evento.fecha_inicio,
+    fechaTexto: etiquetaFecha(
+      evento.fecha_inicio,
+      evento.fecha_fin,
+      evento.es_todo_el_dia
+    ),
     es_todo_el_dia: evento.es_todo_el_dia,
     es_gratis: evento.es_gratis,
     imagen: evento.imagen,
@@ -55,71 +88,50 @@ async function getEventosProximos(): Promise<EventoTarjeta[]> {
     // un negocio desde su panel normalmente no, y ahí el lugar es el
     // propio negocio.
     lugar: evento.lugar_nombre ?? evento.negocio?.nombre ?? null,
+    // Solo los eventos de origen 'negocio' llevan la etiqueta: en los de
+    // agenda oficial, negocio_id puede estar puesto para ubicar el evento
+    // en un local sin que ese local lo organice.
+    organizador:
+      evento.origen === "negocio" ? evento.negocio?.nombre ?? null : null,
+    fuente: creditoFuente(evento.fuente_nombre, evento.fuente_url),
     categoriaNombre: evento.categoria?.nombre ?? null,
     categoriaTipo: evento.categoria?.tipo ?? null,
   }));
 }
 
 export default async function EventosProximos() {
-  const eventos = await getEventosProximos();
+  // Los cuatro cortes de una vez: cambiar de pestaña no debe costar una
+  // navegación. Son consultas pequeñas (6 filas como mucho cada una).
+  const [hoy, manana, finde, proximos] = await Promise.all([
+    getEventos("hoy"),
+    getEventos("manana"),
+    getEventos("finde"),
+    getEventos(),
+  ]);
 
-  // Si algo de lo que se está mostrando empieza hoy, el titular lo dice:
-  // es la pregunta con la que entra el usuario. No cuesta una consulta
-  // extra, sale de los eventos ya traídos.
-  const finDeHoy = rangoTemporal("hoy").hasta;
-  const hayAlgoHoy = eventos.some((evento) => evento.fecha_inicio < finDeHoy);
+  const grupos: GrupoAgenda[] = [
+    { clave: "hoy", etiqueta: "Hoy", eventos: hoy, href: "/eventos?cuando=hoy" },
+    {
+      clave: "manana",
+      etiqueta: "Mañana",
+      eventos: manana,
+      href: "/eventos?cuando=manana",
+    },
+    {
+      clave: "finde",
+      etiqueta: "Este finde",
+      eventos: finde,
+      href: "/eventos?cuando=finde",
+    },
+    { clave: "proximos", etiqueta: "Próximos", eventos: proximos, href: "/eventos" },
+  ];
 
   return (
-    // Antes esta banda llevaba -mt-10 y pt-4 para montarse sobre el borde
-    // inferior del bento de Destacados, que iba justo encima. Ahora va
-    // antes que Destacados y debajo tiene el hero, así que ese solape ya
-    // no aplica: padding normal.
-    //
-    // El pt-10 compensa el sm:-mb-10 del buscador del hero, igual que
-    // hacía el py-10 de Destacados: los 40px negativos y los 40px de
-    // padding se cancelan y el título queda justo bajo la caja.
-    <AnimatedSection className="bg-oliva-900 pt-10 pb-12">
+    // El pt-24 compensa el sm:-mb-10 del buscador del hero: los 40px
+    // negativos y el padding se cancelan y el título queda bajo la caja.
+    <AnimatedSection className="pt-24 pb-16">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-2xl font-semibold text-tierra-50">
-            {hayAlgoHoy ? "Hoy en Jaén" : "Eventos Próximos"}
-          </h2>
-          {eventos.length > 0 && (
-            <Link
-              href={hayAlgoHoy ? "/eventos?cuando=hoy" : "/eventos"}
-              className="text-sm font-medium text-terracota-400 hover:underline"
-            >
-              Ver todos &rsaquo;
-            </Link>
-          )}
-        </div>
-
-        {eventos.length === 0 ? (
-          // Sin caja punteada de EstadoVacio: sobre la banda oscura un
-          // recuadro vacío pesa más que lo que hay dentro. Un mensaje
-          // corto y una llamada a publicar ocupan menos y dicen más.
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <CalendarDays size={26} aria-hidden="true" className="text-oliva-400" />
-            <p className="text-tierra-100">
-              Todavía no hay eventos programados en Jaén.
-            </p>
-            <Link
-              href="/panel"
-              className="text-sm font-semibold text-terracota-400 hover:underline"
-            >
-              ¿Tienes un negocio? Publica el tuyo &rsaquo;
-            </Link>
-          </div>
-        ) : (
-          // Misma retícula que Destacados (max-w-6xl, px-6, gap-4 y 3
-          // columnas en escritorio), con un escalón intermedio de 2
-          // columnas en tablet.
-          <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {eventos.map((evento, i) => (
-              <EventoCard key={evento.id} evento={evento} index={i} />
-            ))}
-          </GridStagger>
-        )}
+        <AgendaCortes grupos={grupos} />
       </div>
     </AnimatedSection>
   );

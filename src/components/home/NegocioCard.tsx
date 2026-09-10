@@ -67,7 +67,7 @@ export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
       variants={variantes}
       whileHover={reducirMovimiento ? undefined : { y: -2 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="group overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow"
+      className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow"
     >
       <div className={`relative ${ASPECTO_IMAGEN} overflow-hidden`}>
         <ImagenNegocio
@@ -86,7 +86,7 @@ export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
             </span>
           )}
         </div>
-        <div className="absolute right-3 top-3">
+        <div className="absolute right-3 top-3 z-10">
           <BotonFavorito
             negocioId={negocio.id}
             esFavorito={negocio.esFavorito ?? false}
@@ -96,10 +96,10 @@ export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
       </div>
 
       <div className="p-4">
-        <h3 className="font-display text-base font-semibold text-oliva-900">
+        <h3 className="font-sans text-lg font-bold tracking-tight text-oliva-900">
           <Link
             href={`/negocio/${negocio.slug}`}
-            className="hover:text-terracota-600 transition-colors"
+            className="hover:text-terracota-600 transition-colors after:absolute after:inset-0"
           >
             {negocio.nombre}
           </Link>

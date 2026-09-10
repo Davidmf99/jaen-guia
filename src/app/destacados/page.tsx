@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Header from "@/components/layout/Header";
 import NegocioCard from "@/components/home/NegocioCard";
 import EstadoVacio from "@/components/home/EstadoVacio";
 import { createClient } from "@/lib/supabase/server";
@@ -72,7 +71,6 @@ export default async function DestacadosPage() {
 
   return (
     <>
-      <Header />
       <main className="mx-auto max-w-6xl px-6 py-10">
         <header className="mb-8 max-w-2xl">
           <h1 className="font-display text-3xl font-semibold text-oliva-900">

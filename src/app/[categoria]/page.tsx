@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Header from "@/components/layout/Header";
 import NegocioCard from "@/components/home/NegocioCard";
 import EstadoVacio from "@/components/home/EstadoVacio";
 import { createClient } from "@/lib/supabase/server";
@@ -217,120 +216,134 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
     return `/${categoria}?${query.toString()}`;
   };
 
+
   return (
     <>
-      <Header />
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <header className="mb-8 max-w-2xl">
-          <h1 className="font-display text-3xl font-semibold text-oliva-900">
-            {info.nombre}
-          </h1>
-          <p className="mt-2 text-oliva-700">{DESCRIPCIONES[info.slug]}</p>
+      <main className="min-h-screen bg-tierra-50 pb-24">
+        {/* Cabecera monumental */}
+        <header className="relative overflow-hidden pt-24 pb-16 md:pt-32 md:pb-24">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+          <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
+            <h1 className="font-display text-6xl md:text-[100px] leading-[0.85] tracking-tight text-oliva-900 mb-6">
+              {info.nombre}
+            </h1>
+            <p className="mx-auto max-w-2xl text-lg md:text-xl text-oliva-700">
+              {DESCRIPCIONES[categoria]}
+            </p>
+          </div>
         </header>
 
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-sm font-medium text-oliva-700">
-              Ordenar por:
-            </span>
-            {ORDENES.map((o) => (
-              <Link
-                key={o.valor}
-                href={hrefConParams({ orden: o.valor })}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  orden === o.valor
-                    ? "bg-oliva-600 text-white"
-                    : "border border-oliva-100 text-oliva-700 hover:bg-oliva-100"
-                }`}
-              >
-                {o.etiqueta}
-              </Link>
-            ))}
-          </div>
+        {/* Barra de filtros flotante/sticky tipo glass */}
+        <div className="sticky top-[73px] z-30 mx-auto max-w-6xl px-6 mb-12">
+          <div className="rounded-[1.5rem] bg-white/70 backdrop-blur-xl p-2 md:p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white ring-1 ring-black/[0.03] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <div className="flex items-center gap-3 px-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-oliva-400">
+                Ordenar
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {ORDENES.map((o) => {
+                  const activo = orden === o.valor;
+                  return (
+                    <Link
+                      key={o.valor}
+                      href={hrefConParams({ orden: o.valor, pagina: 1 })}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                        activo
+                          ? "bg-oliva-900 text-white shadow-sm"
+                          : "bg-transparent text-oliva-600 hover:bg-white hover:text-oliva-900"
+                      }`}
+                    >
+                      {o.etiqueta}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
 
-          {zonasDisponibles.length > 0 && (
-            <form
-              action={`/${categoria}`}
-              method="get"
-              className="flex items-center gap-2"
-            >
-              <input type="hidden" name="orden" value={orden} />
-              <label htmlFor="zona" className="text-sm font-medium text-oliva-700">
-                Zona:
-              </label>
-              <select
-                id="zona"
-                name="zona"
-                defaultValue={zonaSeleccionada ?? ""}
-                className="rounded-full border border-oliva-100 bg-white px-3 py-1.5 text-sm text-oliva-700"
+            {zonasDisponibles.length > 0 && (
+              <form
+                method="get"
+                action={`/${categoria}`}
+                className="flex items-center gap-3 px-2 border-t border-oliva-100/50 pt-3 md:pt-0 md:border-t-0 md:border-l"
               >
-                <option value="">Todas las zonas</option>
-                {zonasDisponibles.map((zona) => (
-                  <option key={zona} value={zona}>
-                    {zona}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="rounded-full bg-oliva-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-oliva-700 transition-colors"
-              >
-                Filtrar
-              </button>
-            </form>
-          )}
+                <input type="hidden" name="orden" value={orden} />
+                <label htmlFor="zona" className="sr-only">Zona</label>
+                <select
+                  id="zona"
+                  name="zona"
+                  defaultValue={zonaSeleccionada ?? ""}
+                  className="rounded-full bg-white/50 px-4 py-2 text-sm font-medium text-oliva-900 outline-none ring-1 ring-oliva-100 focus:ring-2 focus:ring-terracota-400 transition-shadow appearance-none cursor-pointer"
+                >
+                  <option value="">Todas las zonas</option>
+                  {zonasDisponibles.map((z) => (
+                    <option key={z} value={z}>{z}</option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="rounded-full bg-terracota-500 px-5 py-2 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Filtrar
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
-        {negocios.length === 0 ? (
-          <EstadoVacio mensaje={`Aún no hay negocios en ${info.nombre.toLowerCase()}`} />
-        ) : (
-          <>
-            <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {negociosConFavorito.map((negocio, i) => (
-                <NegocioCard
-                  key={negocio.slug}
-                  negocio={negocio}
-                  rutaActual={`/${categoria}`}
-                  index={i}
-                />
-              ))}
-            </GridStagger>
+        <div className="mx-auto max-w-6xl px-6">
+          {negocios.length === 0 ? (
+            <EstadoVacio mensaje={`Aún no hay negocios en ${info.nombre.toLowerCase()}`} />
+          ) : (
+            <>
+              <GridStagger key={`${orden}-${zonaSeleccionada}-${pagina}`} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {negociosConFavorito.map((negocio, i) => (
+                  <NegocioCard
+                    key={negocio.slug}
+                    negocio={negocio}
+                    rutaActual={`/${categoria}`}
+                    index={i}
+                  />
+                ))}
+              </GridStagger>
 
-            {totalPaginas > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-4">
-                {pagina > 1 ? (
-                  <Link
-                    href={hrefConParams({ orden, pagina: pagina - 1 })}
-                    className="rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
-                  >
-                    Anterior
-                  </Link>
-                ) : (
-                  <span className="rounded-full border border-oliva-100 px-4 py-1.5 text-sm font-medium text-oliva-400">
-                    Anterior
+              {/* Paginación refinada */}
+              {totalPaginas > 1 && (
+                <div className="mt-16 flex items-center justify-center gap-6">
+                  {pagina > 1 ? (
+                    <Link
+                      href={hrefConParams({ orden, pagina: pagina - 1 })}
+                      className="rounded-full border border-oliva-100 bg-white px-6 py-2.5 text-sm font-bold text-oliva-900 hover:border-oliva-900 hover:bg-oliva-900 hover:text-white transition-all shadow-sm"
+                    >
+                      Anterior
+                    </Link>
+                  ) : (
+                    <span className="rounded-full border border-oliva-100 bg-white/50 px-6 py-2.5 text-sm font-medium text-oliva-400 cursor-not-allowed">
+                      Anterior
+                    </span>
+                  )}
+
+                  <span className="text-sm font-semibold text-oliva-600 tracking-wide">
+                    {pagina} / {totalPaginas}
                   </span>
-                )}
 
-                <span className="text-sm text-oliva-700">
-                  Página {pagina} de {totalPaginas}
-                </span>
-
-                {pagina < totalPaginas ? (
-                  <Link
-                    href={hrefConParams({ orden, pagina: pagina + 1 })}
-                    className="rounded-full bg-terracota-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
-                  >
-                    Siguiente
-                  </Link>
-                ) : (
-                  <span className="rounded-full border border-oliva-100 px-4 py-1.5 text-sm font-medium text-oliva-400">
-                    Siguiente
-                  </span>
-                )}
-              </div>
-            )}
-          </>
-        )}
+                  {pagina < totalPaginas ? (
+                    <Link
+                      href={hrefConParams({ orden, pagina: pagina + 1 })}
+                      className="rounded-full bg-oliva-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
+                    >
+                      Siguiente
+                    </Link>
+                  ) : (
+                    <span className="rounded-full border border-oliva-100 bg-white/50 px-6 py-2.5 text-sm font-medium text-oliva-400 cursor-not-allowed">
+                      Siguiente
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </main>
     </>
   );

@@ -25,3 +25,25 @@ body {
   background-color: var(--color-tierra-50);
   color: var(--color-oliva-900);
 }
+
+/* Barra de progreso de navegación: avanza rápido al principio y se frena
+   cerca del final, para que nunca "acabe" antes que la propia navegación.
+   La barra se retira cuando la ruta cambia, no cuando termina la animación. */
+@keyframes barra-progreso {
+  0% { transform: scaleX(0); }
+  25% { transform: scaleX(0.45); }
+  55% { transform: scaleX(0.7); }
+  100% { transform: scaleX(0.92); }
+}
+
+.animar-barra-progreso {
+  transform-origin: left;
+  animation: barra-progreso 8s cubic-bezier(0.1, 0.6, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animar-barra-progreso {
+    animation: none;
+    transform: scaleX(0.5);
+  }
+}

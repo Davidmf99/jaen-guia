@@ -65,9 +65,9 @@ export default async function BentoDestacados() {
   const [principal, ...resto] = conFavorito;
 
   return (
-    <AnimatedSection className="mx-auto max-w-6xl px-6 py-10">
+    <AnimatedSection className="mx-auto max-w-6xl px-6 py-24">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="font-display text-2xl font-semibold text-oliva-900">
+        <h2 className="font-sans text-3xl font-bold tracking-tight text-oliva-900">
           Destacados en Jaén
         </h2>
         <Link

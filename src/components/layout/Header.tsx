@@ -43,7 +43,7 @@ export default async function Header() {
     // al hacer scroll (se veía el botón "Buscar" naranja por detrás del
     // menú). Detrás de un fondo opaco el backdrop-blur no hace nada, así
     // que se quita también.
-    <header className="sticky top-0 z-50 bg-tierra-50 border-b border-oliva-100">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-oliva-100/50">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
           <Image

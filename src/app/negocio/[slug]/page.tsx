@@ -4,7 +4,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { MapPin, Phone, Globe, Clock, Star } from "lucide-react";
-import Header from "@/components/layout/Header";
 import MapaUbicacion from "@/components/negocio/MapaUbicacion";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPuntuacionMedia } from "@/lib/resenas";
@@ -113,91 +112,85 @@ export default async function NegocioPage({ params }: PageProps) {
     revalidatePath(`/negocio/${slug}`);
   }
 
+
   return (
     <>
-      <Header />
-      <main>
-        <div className="relative h-64 w-full overflow-hidden md:h-80">
-          <ImagenNegocio
-            negocioId={negocio.id}
-            nombre={negocio.nombre}
-            imagenPortada={negocio.imagen_portada}
-            googlePhotoName={negocio.google_photo_name}
-            googlePhotoAtribucion={negocio.google_photo_atribucion}
-            posicionAtribucion="top-right"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-oliva-900/80 via-oliva-900/20 to-transparent" />
+      <main className="min-h-screen bg-tierra-50 pb-24">
+        {/* Cabecera hero: En lugar de un SVG curve feo, usamos un Bento block flotante */}
+        <div className="mx-auto max-w-6xl px-6 pt-10">
+          <div className="relative h-72 w-full overflow-hidden rounded-[2.5rem] shadow-xl md:h-[450px]">
+            <ImagenNegocio
+              negocioId={negocio.id}
+              nombre={negocio.nombre}
+              imagenPortada={negocio.imagen_portada}
+              googlePhotoName={negocio.google_photo_name}
+              googlePhotoAtribucion={negocio.google_photo_atribucion}
+              posicionAtribucion="top-right"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-oliva-900/90 via-oliva-900/20 to-transparent" />
 
-          <div className="relative mx-auto flex h-full max-w-6xl items-end justify-between gap-4 px-6 pb-8 text-white">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-tierra-100">
-                {negocio.categoria?.nombre}
-                {negocio.zona ? ` · ${negocio.zona}` : ""}
-              </p>
-              <h1 className="font-display text-3xl font-semibold md:text-4xl">
-                {negocio.nombre}
-              </h1>
-              {puntuacionMedia !== undefined && (
-                <p className="mt-1 flex items-center gap-1 text-sm">
-                  <Star
-                    size={14}
-                    aria-hidden="true"
-                    className="fill-terracota-400 text-terracota-400"
-                  />
-                  {puntuacionMedia.toFixed(1)}
-                  <span className="text-tierra-200">
-                    ({negocio.resenas.length}{" "}
-                    {negocio.resenas.length === 1 ? "reseña" : "reseñas"})
-                  </span>
-                </p>
-              )}
-            </div>
+            <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-white flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div className="max-w-3xl">
+                <span className="mb-3 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur-md">
+                  {negocio.categoria?.nombre}
+                  {negocio.zona ? ` · ${negocio.zona}` : ""}
+                </span>
+                <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-6xl mb-4">
+                  {negocio.nombre}
+                </h1>
+                {puntuacionMedia !== undefined && (
+                  <div className="flex items-center gap-2 text-sm md:text-base font-medium">
+                    <div className="flex items-center gap-1 rounded-full bg-terracota-500/20 px-3 py-1 backdrop-blur-md border border-terracota-500/30">
+                      <Star
+                        size={16}
+                        aria-hidden="true"
+                        className="fill-terracota-500 text-terracota-500"
+                      />
+                      <span className="text-white font-bold">{puntuacionMedia.toFixed(1)}</span>
+                    </div>
+                    <span className="text-white/80">
+                      ({negocio.resenas.length}{" "}
+                      {negocio.resenas.length === 1 ? "reseña" : "reseñas"})
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            <div className="shrink-0">
-              <BotonFavorito
-                negocioId={negocioId}
-                esFavorito={favoritoIds.has(negocioId)}
-                rutaActual={`/negocio/${slug}`}
-                size={18}
-                padding="p-2.5"
-              />
+              <div className="shrink-0">
+                <BotonFavorito
+                  negocioId={negocioId}
+                  esFavorito={favoritoIds.has(negocioId)}
+                  rutaActual={`/negocio/${slug}`}
+                  size={24}
+                  padding="p-4"
+                />
+              </div>
             </div>
           </div>
-
-          {/* Curva orgánica que rompe la geometría de la cabecera */}
-          <svg
-            className="absolute bottom-0 left-0 w-full text-tierra-50"
-            viewBox="0 0 1440 80"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path
-              fill="currentColor"
-              d="M0,32 C240,80 480,0 720,24 C960,48 1200,88 1440,40 L1440,80 L0,80 Z"
-            />
-          </svg>
         </div>
 
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="space-y-8 md:col-span-2">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
+            
+            {/* Columna Izquierda: Información */}
+            <div className="space-y-16 lg:col-span-8">
               {negocio.descripcion && (
                 <section>
-                  <h2 className="font-display text-xl font-semibold text-oliva-900">
+                  <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                     Sobre este lugar
                   </h2>
-                  <p className="mt-2 whitespace-pre-line text-oliva-700">
+                  <p className="whitespace-pre-line text-lg leading-relaxed text-oliva-700">
                     {negocio.descripcion}
                   </p>
                 </section>
               )}
 
               <section>
-                <h2 className="font-display text-xl font-semibold text-oliva-900">
+                <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                   Ubicación
                 </h2>
                 {negocio.lat !== null && negocio.lng !== null ? (
-                  <div className="mt-3">
+                  <div className="overflow-hidden rounded-[2rem] border border-oliva-100 shadow-sm">
                     <MapaUbicacion
                       puntos={[
                         { nombre: negocio.nombre, lat: negocio.lat, lng: negocio.lng },
@@ -206,26 +199,26 @@ export default async function NegocioPage({ params }: PageProps) {
                     />
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-oliva-600">
+                  <p className="text-oliva-600">
                     Este negocio aún no tiene ubicación en el mapa.
                   </p>
                 )}
               </section>
 
               <section>
-                <h2 className="font-display text-xl font-semibold text-oliva-900">
+                <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6 flex items-center gap-2">
                   Reseñas
-                  {negocio.resenas.length > 0 && ` (${negocio.resenas.length})`}
+                  {negocio.resenas.length > 0 && <span className="flex items-center justify-center h-6 w-6 rounded-full bg-oliva-100 text-xs font-bold text-oliva-900">{negocio.resenas.length}</span>}
                 </h2>
 
                 {resenasOficiales.length === 0 && resenasUsuarios.length === 0 && (
-                  <p className="mt-3 text-sm text-oliva-600">
+                  <p className="text-oliva-600 italic">
                     Sé el primero en dejar una reseña.
                   </p>
                 )}
 
                 {resenasOficiales.length > 0 && (
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-4">
                     {resenasOficiales.map((resena) => (
                       <TarjetaResena key={resena.id} resena={resena} />
                     ))}
@@ -233,25 +226,25 @@ export default async function NegocioPage({ params }: PageProps) {
                 )}
 
                 {resenasUsuarios.length > 0 && (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-6 space-y-4">
                     {resenasUsuarios.map((resena) => (
                       <TarjetaResena key={resena.id} resena={resena} />
                     ))}
                   </div>
                 )}
 
-                <div className="mt-6">
+                <div className="mt-10">
                   {user ? (
                     <form
                       action={crearResena}
-                      className="space-y-3 rounded-2xl bg-white p-4 shadow-sm"
+                      className="rounded-[2rem] bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100"
                     >
-                      <p className="text-sm font-medium text-oliva-900">
+                      <h3 className="text-xl font-bold text-oliva-900 mb-6">
                         Deja tu reseña
-                      </p>
-                      <div className="flex items-center gap-1">
+                      </h3>
+                      <div className="mb-6 flex items-center gap-2">
                         {[1, 2, 3, 4, 5].map((n) => (
-                          <label key={n} className="cursor-pointer">
+                          <label key={n} className="cursor-pointer group relative">
                             <input
                               type="radio"
                               name="puntuacion"
@@ -262,32 +255,32 @@ export default async function NegocioPage({ params }: PageProps) {
                               required
                             />
                             <Star
-                              size={22}
+                              size={28}
                               aria-hidden="true"
-                              className="text-oliva-400 transition-colors peer-checked:fill-terracota-500 peer-checked:text-terracota-500"
+                              className="text-oliva-100 transition-colors peer-checked:fill-terracota-500 peer-checked:text-terracota-500 group-hover:text-terracota-400 group-hover:fill-terracota-400"
                             />
                           </label>
                         ))}
                       </div>
                       <textarea
                         name="texto"
-                        rows={3}
+                        rows={4}
                         placeholder="Cuéntanos tu experiencia (opcional)"
-                        className="w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                        className="mb-6 w-full rounded-2xl border border-oliva-100 bg-tierra-50 p-4 text-base outline-none focus:border-terracota-400 focus:bg-white transition-all resize-none"
                       />
                       <button
                         type="submit"
-                        className="rounded-full bg-terracota-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+                        className="rounded-full bg-oliva-900 px-8 py-3.5 font-bold text-white hover:bg-terracota-600 transition-all hover:scale-[1.02] active:scale-[0.98]"
                       >
                         Publicar reseña
                       </button>
                     </form>
                   ) : (
-                    <div className="rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50 px-4 py-6 text-center">
-                      <p className="text-sm text-oliva-700">
+                    <div className="rounded-[2rem] border-2 border-dashed border-oliva-100 bg-white p-8 text-center">
+                      <p className="text-oliva-700 font-medium">
                         <Link
                           href="/login"
-                          className="font-medium text-terracota-600 hover:underline"
+                          className="font-bold text-terracota-600 hover:text-terracota-500 transition-colors"
                         >
                           Inicia sesión
                         </Link>{" "}
@@ -299,54 +292,68 @@ export default async function NegocioPage({ params }: PageProps) {
               </section>
             </div>
 
-            <aside className="space-y-3 rounded-2xl bg-white p-4 shadow-sm md:h-fit">
-              {negocio.direccion && (
-                <div className="flex items-start gap-2 text-sm text-oliva-700">
-                  <MapPin size={16} className="mt-0.5 shrink-0 text-oliva-400" />
-                  <span>{negocio.direccion}</span>
-                </div>
-              )}
+            {/* Columna Derecha: Tarjeta de Info Bento */}
+            <aside className="lg:col-span-4">
+              <div className="sticky top-24 space-y-6 rounded-[2rem] bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100">
+                <h3 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
+                  Información
+                </h3>
 
-              {negocio.telefono && (
-                <div className="flex items-center gap-2 text-sm text-oliva-700">
-                  <Phone size={16} className="shrink-0 text-oliva-400" />
-                  <a href={`tel:${negocio.telefono}`} className="hover:text-terracota-600">
-                    {negocio.telefono}
-                  </a>
-                </div>
-              )}
+                {negocio.direccion && (
+                  <div className="flex items-start gap-4 text-oliva-700">
+                    <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                      <MapPin size={20} strokeWidth={1.5} />
+                    </div>
+                    <span className="pt-2 font-medium leading-tight">{negocio.direccion}</span>
+                  </div>
+                )}
 
-              {negocio.web && (
-                <div className="flex items-center gap-2 text-sm text-oliva-700">
-                  <Globe size={16} className="shrink-0 text-oliva-400" />
-                  <a
-                    href={negocio.web}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="truncate hover:text-terracota-600"
-                  >
-                    {negocio.web}
-                  </a>
-                </div>
-              )}
+                {negocio.telefono && (
+                  <div className="flex items-center gap-4 text-oliva-700">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                      <Phone size={20} strokeWidth={1.5} />
+                    </div>
+                    <a href={`tel:${negocio.telefono}`} className="font-medium hover:text-terracota-600 transition-colors">
+                      {negocio.telefono}
+                    </a>
+                  </div>
+                )}
 
-              {negocio.horario && Object.keys(negocio.horario).length > 0 && (
-                <div>
-                  <p className="flex items-center gap-2 text-sm font-medium text-oliva-900">
-                    <Clock size={16} className="text-oliva-400" />
-                    Horario
-                  </p>
-                  <ul className="mt-1 space-y-0.5 text-sm text-oliva-700">
-                    {Object.entries(negocio.horario).map(([dia, horas]) => (
-                      <li key={dia} className="flex justify-between gap-4">
-                        <span className="capitalize">{dia}</span>
-                        <span>{horas}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                {negocio.web && (
+                  <div className="flex items-center gap-4 text-oliva-700">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                      <Globe size={20} strokeWidth={1.5} />
+                    </div>
+                    <a
+                      href={negocio.web}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate font-medium hover:text-terracota-600 transition-colors"
+                    >
+                      {negocio.web.replace(/^https?:\/\//i, '').replace(/\/$/, '')}
+                    </a>
+                  </div>
+                )}
+
+                {negocio.horario && Object.keys(negocio.horario).length > 0 && (
+                  <div className="pt-6 border-t border-oliva-100/50 mt-6">
+                    <p className="flex items-center gap-3 font-bold text-oliva-900 mb-4">
+                      <Clock size={20} strokeWidth={1.5} className="text-terracota-500" />
+                      Horario de apertura
+                    </p>
+                    <ul className="space-y-3 text-sm font-medium text-oliva-700">
+                      {Object.entries(negocio.horario).map(([dia, horas]) => (
+                        <li key={dia} className="flex justify-between gap-4">
+                          <span className="capitalize opacity-80">{dia}</span>
+                          <span className="text-oliva-900">{horas}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </aside>
+
           </div>
         </div>
       </main>
@@ -356,33 +363,33 @@ export default async function NegocioPage({ params }: PageProps) {
 
 function TarjetaResena({ resena }: { resena: ResenaRow }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
+    <div className="rounded-2xl border border-oliva-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <div
-          className="flex items-center gap-0.5"
-          aria-label={`${resena.puntuacion} de 5 estrellas`}
+          className="flex items-center gap-1"
+          aria-label={`\${resena.puntuacion} de 5 estrellas`}
         >
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              size={14}
+              size={16}
               aria-hidden="true"
               className={
                 i < resena.puntuacion
                   ? "fill-terracota-500 text-terracota-500"
-                  : "text-oliva-400"
+                  : "text-oliva-100"
               }
             />
           ))}
         </div>
         {resena.es_oficial && (
-          <span className="rounded-full bg-oliva-600 px-2 py-0.5 text-xs font-semibold text-white">
-            Valoración del equipo
+          <span className="rounded-full bg-oliva-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+            Nota editorial
           </span>
         )}
       </div>
-      {resena.texto && <p className="mt-2 text-sm text-oliva-700">{resena.texto}</p>}
-      <p className="mt-2 text-xs text-oliva-400">
+      {resena.texto && <p className="text-sm font-medium leading-relaxed text-oliva-900 mb-3">{resena.texto}</p>}
+      <p className="text-xs font-semibold text-oliva-400 uppercase tracking-wide">
         {new Date(resena.created_at).toLocaleDateString("es-ES", {
           day: "numeric",
           month: "long",

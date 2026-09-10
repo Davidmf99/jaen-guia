@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
-import Header from "@/components/layout/Header";
 import EventoCard, { type EventoTarjeta } from "@/components/home/EventoCard";
 import GridStagger from "@/components/motion/GridStagger";
 import { createClient } from "@/lib/supabase/server";
 import { getCategorias } from "@/lib/categorias";
+import { getMunicipioCapitalId } from "@/lib/municipios";
 import {
+  creditoFuente,
+  etiquetaFecha,
   filtroEventosEnRango,
   filtroEventosVigentes,
   rangoTemporal,
@@ -28,10 +30,14 @@ interface EventoRow {
   slug: string;
   titulo: string;
   fecha_inicio: string;
+  fecha_fin: string | null;
   es_todo_el_dia: boolean;
   es_gratis: boolean;
   imagen: string | null;
   lugar_nombre: string | null;
+  origen: string;
+  fuente_nombre: string | null;
+  fuente_url: string | null;
   categoria: { nombre: string; slug: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string } | null;
 }
@@ -42,6 +48,7 @@ interface EventoRow {
 const CORTES: { valor: CorteTemporal | ""; etiqueta: string }[] = [
   { valor: "", etiqueta: "Todos" },
   { valor: "hoy", etiqueta: "Hoy" },
+  { valor: "manana", etiqueta: "Mañana" },
   { valor: "finde", etiqueta: "Este finde" },
 ];
 
@@ -50,6 +57,7 @@ async function getEventos(
   corte?: CorteTemporal
 ): Promise<EventoTarjeta[]> {
   const supabase = await createClient();
+  const capitalId = await getMunicipioCapitalId();
 
   // El !inner solo cuando se filtra: hace falta para poder filtrar por un
   // campo de la tabla relacionada, pero como INNER JOIN descarta los
@@ -59,9 +67,13 @@ async function getEventos(
   let consulta = supabase
     .from("eventos")
     .select(
-      `id, slug, titulo, fecha_inicio, es_todo_el_dia, es_gratis, imagen, lugar_nombre, categoria:${relacion}(nombre, slug, tipo), negocio:negocios(nombre)`
+      `id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, categoria:${relacion}(nombre, slug, tipo), negocio:negocios(nombre)`
     )
     .eq("estado", "publicado");
+
+  // Fase capital: ver el comentario en EventosProximos.tsx. Lo de la
+  // provincia sigue en la tabla, esperando a que se abra esa fase.
+  consulta = consulta.eq("municipio_id", capitalId);
 
   if (corte) {
     // Un corte es un subconjunto de los vigentes, no una ventana al
@@ -86,10 +98,18 @@ async function getEventos(
     slug: evento.slug,
     titulo: evento.titulo,
     fecha_inicio: evento.fecha_inicio,
+    fechaTexto: etiquetaFecha(
+      evento.fecha_inicio,
+      evento.fecha_fin,
+      evento.es_todo_el_dia
+    ),
     es_todo_el_dia: evento.es_todo_el_dia,
     es_gratis: evento.es_gratis,
     imagen: evento.imagen,
     lugar: evento.lugar_nombre ?? evento.negocio?.nombre ?? null,
+    organizador:
+      evento.origen === "negocio" ? evento.negocio?.nombre ?? null : null,
+    fuente: creditoFuente(evento.fuente_nombre, evento.fuente_url),
     categoriaNombre: evento.categoria?.nombre ?? null,
     categoriaTipo: evento.categoria?.tipo ?? null,
   }));
@@ -102,7 +122,9 @@ interface PageProps {
 export default async function EventosPage({ searchParams }: PageProps) {
   const { categoria, cuando } = await searchParams;
   const corte: CorteTemporal | undefined =
-    cuando === "hoy" || cuando === "finde" ? cuando : undefined;
+    cuando === "hoy" || cuando === "manana" || cuando === "finde"
+      ? cuando
+      : undefined;
 
   const [categorias, eventos] = await Promise.all([
     getCategorias(),
@@ -130,7 +152,6 @@ export default async function EventosPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <Header />
       <main className="mx-auto max-w-6xl px-6 py-10">
         <header className="mb-8 max-w-2xl">
           <h1 className="font-display text-3xl font-semibold text-oliva-900">
