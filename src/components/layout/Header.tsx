@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronDown, Heart, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import MenuMovil from "./MenuMovil";
+import MenuCuenta from "./MenuCuenta";
+import MedidorCabecera from "./MedidorCabecera";
 import { getCategorias } from "@/lib/categorias";
 
 export default async function Header() {
@@ -45,23 +46,25 @@ export default async function Header() {
     // que se quita también.
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-oliva-100/50">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="-ml-2 flex min-h-11 items-center gap-2 rounded-xl px-2" aria-label="Jaén Guía, ir al inicio">
           <Image
             src="/images/logo.svg"
-            alt="Jaén Guía"
+            /* El enlace ya lleva aria-label, así que repetirlo aquí hace
+               que un lector de pantalla lo anuncie dos veces. */
+            alt=""
             width={52}
             height={42}
-            className="h-10 w-auto md:h-[42px]"
+            className="h-10 w-auto md:h-11"
             priority
           />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-oliva-700">
+        <nav className="hidden md:flex items-center gap-7 text-base font-medium text-oliva-700">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="hover:text-terracota-600 transition-colors"
+              className="inline-flex min-h-11 items-center hover:text-terracota-600 transition-colors"
             >
               {link.label}
             </Link>
@@ -69,50 +72,18 @@ export default async function Header() {
         </nav>
 
         {nombreMostrado ? (
-          <div className="group relative">
-            <button
-              type="button"
-              aria-haspopup="menu"
-              className="flex items-center gap-1.5 rounded-full border border-oliva-100 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-100 transition-colors"
-            >
-              <span className="max-w-[10rem] truncate">{nombreMostrado}</span>
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
-
-            <div
-              role="menu"
-              className="invisible absolute right-0 top-full z-10 mt-1 w-48 rounded-2xl bg-white p-1.5 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-            >
-              <Link
-                href="/favoritos"
-                role="menuitem"
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-oliva-700 hover:bg-oliva-50"
-              >
-                <Heart size={14} aria-hidden="true" />
-                Mis favoritos
-              </Link>
-              <form action={cerrarSesion}>
-                <button
-                  type="submit"
-                  role="menuitem"
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-oliva-700 hover:bg-oliva-50"
-                >
-                  <LogOut size={14} aria-hidden="true" />
-                  Cerrar sesión
-                </button>
-              </form>
-            </div>
-          </div>
+          <MenuCuenta nombre={nombreMostrado} cerrarSesion={cerrarSesion} />
         ) : (
           <Link
             href="/login"
-            className="hidden md:inline-block rounded-full border border-oliva-600 px-4 py-1.5 text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
+            className="hidden md:inline-flex min-h-11 items-center rounded-full border border-oliva-600 px-5 text-base font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
           >
             Iniciar sesión
           </Link>
         )}
 
         <MenuMovil enlaces={navLinks} mostrarLogin={!nombreMostrado} />
+        <MedidorCabecera />
       </div>
     </header>
   );

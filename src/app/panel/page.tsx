@@ -166,7 +166,7 @@ export default async function PanelPage({ searchParams }: PageProps) {
         {(ok || error) && (
           <p
             role="status"
-            className={`mb-6 rounded-2xl px-4 py-3 text-sm font-semibold ${
+            className={`mb-6 rounded-2xl px-4 py-3 text-base font-semibold ${
               error
                 ? "bg-terracota-500/10 text-terracota-600"
                 : "bg-oliva-100 text-oliva-900"
@@ -187,7 +187,7 @@ export default async function PanelPage({ searchParams }: PageProps) {
             <input type="hidden" name="slug" value={negocio.slug} />
 
             <div>
-              <label htmlFor="nombre" className="text-sm font-medium text-oliva-700">
+              <label htmlFor="nombre" className="block text-base font-medium text-oliva-700">
                 Nombre
               </label>
               <input
@@ -196,12 +196,12 @@ export default async function PanelPage({ searchParams }: PageProps) {
                 type="text"
                 defaultValue={negocio.nombre}
                 required
-                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               />
             </div>
 
             <div>
-              <label htmlFor="descripcion" className="text-sm font-medium text-oliva-700">
+              <label htmlFor="descripcion" className="block text-base font-medium text-oliva-700">
                 Descripción
               </label>
               <textarea
@@ -209,13 +209,13 @@ export default async function PanelPage({ searchParams }: PageProps) {
                 name="descripcion"
                 rows={4}
                 defaultValue={negocio.descripcion ?? ""}
-                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="telefono" className="text-sm font-medium text-oliva-700">
+                <label htmlFor="telefono" className="block text-base font-medium text-oliva-700">
                   Teléfono
                 </label>
                 <input
@@ -223,11 +223,11 @@ export default async function PanelPage({ searchParams }: PageProps) {
                   name="telefono"
                   type="tel"
                   defaultValue={negocio.telefono ?? ""}
-                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
                 />
               </div>
               <div>
-                <label htmlFor="web" className="text-sm font-medium text-oliva-700">
+                <label htmlFor="web" className="block text-base font-medium text-oliva-700">
                   Web
                 </label>
                 <input
@@ -236,19 +236,23 @@ export default async function PanelPage({ searchParams }: PageProps) {
                   type="url"
                   placeholder="https://"
                   defaultValue={negocio.web ?? ""}
-                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
                 />
               </div>
             </div>
 
-            <div>
-              <p className="text-sm font-medium text-oliva-700">Horario</p>
+            {/* fieldset/legend y no un <p>: es un grupo de campos, y así
+                un lector de pantalla anuncia "Horario" al entrar en él. */}
+            <fieldset>
+              <legend className="text-base font-medium text-oliva-700">
+                Horario
+              </legend>
               <div className="mt-2 space-y-2">
                 {DIAS.map((dia) => (
                   <div key={dia.clave} className="flex items-center gap-3">
                     <label
                       htmlFor={`horario_${dia.clave}`}
-                      className="w-24 shrink-0 text-sm text-oliva-700"
+                      className="w-24 shrink-0 text-base text-oliva-700"
                     >
                       {dia.etiqueta}
                     </label>
@@ -258,35 +262,47 @@ export default async function PanelPage({ searchParams }: PageProps) {
                       type="text"
                       placeholder="9:00-14:00, 17:00-21:00 (vacío = cerrado)"
                       defaultValue={negocio.horario?.[dia.clave] ?? ""}
-                      className="flex-1 rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400"
+                      className="flex-1 rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
                     />
                   </div>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             <div>
-              <p className="text-sm font-medium text-oliva-700">Foto de portada</p>
+              {/* label y no <p>: era el único campo del proyecto sin
+                  etiqueta asociada, y un lector de pantalla anunciaba
+                  solo "botón Seleccionar archivo", sin decir de qué. */}
+              <label
+                htmlFor="portada"
+                className="block text-base font-medium text-oliva-700"
+              >
+                Foto de portada
+              </label>
               {negocio.imagen_portada && (
-                <div
-                  className="mt-2 h-32 w-full rounded-xl bg-cover bg-center"
-                  style={{ backgroundImage: `url(${negocio.imagen_portada})` }}
+                /* eslint-disable-next-line @next/next/no-img-element -- URL de Supabase Storage, sin dominio fijo que declarar en next.config */
+                <img
+                  src={negocio.imagen_portada}
+                  alt="Foto de portada actual de tu negocio"
+                  className="mt-2 h-32 w-full rounded-xl object-cover"
                 />
               )}
               <input
+                id="portada"
                 type="file"
                 name="portada"
                 accept="image/*"
-                className="mt-2 block w-full text-sm text-oliva-700 file:mr-3 file:rounded-full file:border-0 file:bg-oliva-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-oliva-700 hover:file:bg-oliva-600 hover:file:text-white"
+                aria-describedby="portada-ayuda"
+                className="mt-2 block w-full text-base text-oliva-700 file:mr-3 file:rounded-full file:border-0 file:bg-oliva-100 file:px-4 file:py-2.5 file:text-base file:font-medium file:text-oliva-700 hover:file:bg-oliva-600 hover:file:text-white"
               />
-              <p className="mt-1 text-xs text-oliva-600">
+              <p id="portada-ayuda" className="mt-1 text-sm text-oliva-600">
                 Deja este campo vacío para mantener la foto actual.
               </p>
             </div>
 
             <button
               type="submit"
-              className="rounded-full bg-terracota-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+              className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
             >
               Guardar cambios
             </button>

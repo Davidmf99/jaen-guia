@@ -10,6 +10,8 @@ import { calcularPuntuacionMedia } from "@/lib/resenas";
 import { getUsuarioYFavoritos } from "@/lib/favoritos";
 import BotonFavorito from "@/components/BotonFavorito";
 import ImagenNegocio from "@/components/ImagenNegocio";
+import SelectorEstrellas from "@/components/negocio/SelectorEstrellas";
+import ComoLlegar from "@/components/ComoLlegar";
 
 interface ResenaRow {
   id: string;
@@ -131,7 +133,7 @@ export default async function NegocioPage({ params }: PageProps) {
 
             <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-white flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="max-w-3xl">
-                <span className="mb-3 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur-md">
+                <span className="mb-3 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold uppercase tracking-widest backdrop-blur-md">
                   {negocio.categoria?.nombre}
                   {negocio.zona ? ` · ${negocio.zona}` : ""}
                 </span>
@@ -161,8 +163,7 @@ export default async function NegocioPage({ params }: PageProps) {
                   negocioId={negocioId}
                   esFavorito={favoritoIds.has(negocioId)}
                   rutaActual={`/negocio/${slug}`}
-                  size={24}
-                  padding="p-4"
+                  tamano="ficha"
                 />
               </div>
             </div>
@@ -176,7 +177,7 @@ export default async function NegocioPage({ params }: PageProps) {
             <div className="space-y-16 lg:col-span-8">
               {negocio.descripcion && (
                 <section>
-                  <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
+                  <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                     Sobre este lugar
                   </h2>
                   <p className="whitespace-pre-line text-lg leading-relaxed text-oliva-700">
@@ -186,7 +187,7 @@ export default async function NegocioPage({ params }: PageProps) {
               )}
 
               <section>
-                <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
+                <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                   Ubicación
                 </h2>
                 {negocio.lat !== null && negocio.lng !== null ? (
@@ -203,12 +204,24 @@ export default async function NegocioPage({ params }: PageProps) {
                     Este negocio aún no tiene ubicación en el mapa.
                   </p>
                 )}
+
+                {/* En táctil el mapa no se arrastra (ver MapaLeaflet), así
+                    que este botón es la única forma real de pasar de "dónde
+                    está" a "llévame". */}
+                <div className="mt-5">
+                  <ComoLlegar
+                    nombre={negocio.nombre}
+                    direccion={negocio.direccion}
+                    lat={negocio.lat}
+                    lng={negocio.lng}
+                  />
+                </div>
               </section>
 
               <section>
-                <h2 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6 flex items-center gap-2">
+                <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6 flex items-center gap-2">
                   Reseñas
-                  {negocio.resenas.length > 0 && <span className="flex items-center justify-center h-6 w-6 rounded-full bg-oliva-100 text-xs font-bold text-oliva-900">{negocio.resenas.length}</span>}
+                  {negocio.resenas.length > 0 && <span className="flex items-center justify-center h-6 w-6 rounded-full bg-oliva-100 text-sm font-bold text-oliva-900">{negocio.resenas.length}</span>}
                 </h2>
 
                 {resenasOficiales.length === 0 && resenasUsuarios.length === 0 && (
@@ -242,35 +255,27 @@ export default async function NegocioPage({ params }: PageProps) {
                       <h3 className="text-xl font-bold text-oliva-900 mb-6">
                         Deja tu reseña
                       </h3>
-                      <div className="mb-6 flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <label key={n} className="cursor-pointer group relative">
-                            <input
-                              type="radio"
-                              name="puntuacion"
-                              value={n}
-                              defaultChecked={n === 5}
-                              aria-label={`${n} ${n === 1 ? "estrella" : "estrellas"}`}
-                              className="peer sr-only"
-                              required
-                            />
-                            <Star
-                              size={28}
-                              aria-hidden="true"
-                              className="text-oliva-100 transition-colors peer-checked:fill-terracota-500 peer-checked:text-terracota-500 group-hover:text-terracota-400 group-hover:fill-terracota-400"
-                            />
-                          </label>
-                        ))}
-                      </div>
+                      <SelectorEstrellas />
+
+                      <label
+                        htmlFor="texto"
+                        className="mb-2 block text-base font-semibold text-oliva-900"
+                      >
+                        Tu comentario{" "}
+                        <span className="font-normal text-oliva-600">
+                          (opcional)
+                        </span>
+                      </label>
                       <textarea
+                        id="texto"
                         name="texto"
                         rows={4}
-                        placeholder="Cuéntanos tu experiencia (opcional)"
+                        placeholder="Cuéntanos tu experiencia"
                         className="mb-6 w-full rounded-2xl border border-oliva-100 bg-tierra-50 p-4 text-base outline-none focus:border-terracota-400 focus:bg-white transition-all resize-none"
                       />
                       <button
                         type="submit"
-                        className="rounded-full bg-oliva-900 px-8 py-3.5 font-bold text-white hover:bg-terracota-600 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        className="rounded-full bg-oliva-900 px-8 py-3.5 font-bold text-white hover:bg-terracota-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
                       >
                         Publicar reseña
                       </button>
@@ -280,7 +285,7 @@ export default async function NegocioPage({ params }: PageProps) {
                       <p className="text-oliva-700 font-medium">
                         <Link
                           href="/login"
-                          className="font-bold text-terracota-600 hover:text-terracota-500 transition-colors"
+                          className="font-bold text-terracota-600 hover:text-terracota-700 transition-colors"
                         >
                           Inicia sesión
                         </Link>{" "}
@@ -295,7 +300,7 @@ export default async function NegocioPage({ params }: PageProps) {
             {/* Columna Derecha: Tarjeta de Info Bento */}
             <aside className="lg:col-span-4">
               <div className="sticky top-24 space-y-6 rounded-[2rem] bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100">
-                <h3 className="font-sans text-xs font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
+                <h3 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                   Información
                 </h3>
 
@@ -307,6 +312,14 @@ export default async function NegocioPage({ params }: PageProps) {
                     <span className="pt-2 font-medium leading-tight">{negocio.direccion}</span>
                   </div>
                 )}
+
+                <ComoLlegar
+                  nombre={negocio.nombre}
+                  direccion={negocio.direccion}
+                  lat={negocio.lat}
+                  lng={negocio.lng}
+                  variante="discreta"
+                />
 
                 {negocio.telefono && (
                   <div className="flex items-center gap-4 text-oliva-700">
@@ -341,7 +354,7 @@ export default async function NegocioPage({ params }: PageProps) {
                       <Clock size={20} strokeWidth={1.5} className="text-terracota-500" />
                       Horario de apertura
                     </p>
-                    <ul className="space-y-3 text-sm font-medium text-oliva-700">
+                    <ul className="space-y-3 text-base font-medium text-oliva-700">
                       {Object.entries(negocio.horario).map(([dia, horas]) => (
                         <li key={dia} className="flex justify-between gap-4">
                           <span className="capitalize opacity-80">{dia}</span>
@@ -367,7 +380,7 @@ function TarjetaResena({ resena }: { resena: ResenaRow }) {
       <div className="flex items-center justify-between gap-2 mb-3">
         <div
           className="flex items-center gap-1"
-          aria-label={`\${resena.puntuacion} de 5 estrellas`}
+          aria-label={`${resena.puntuacion} de 5 estrellas`}
         >
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
@@ -383,13 +396,13 @@ function TarjetaResena({ resena }: { resena: ResenaRow }) {
           ))}
         </div>
         {resena.es_oficial && (
-          <span className="rounded-full bg-oliva-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-full bg-oliva-900 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
             Nota editorial
           </span>
         )}
       </div>
-      {resena.texto && <p className="text-sm font-medium leading-relaxed text-oliva-900 mb-3">{resena.texto}</p>}
-      <p className="text-xs font-semibold text-oliva-400 uppercase tracking-wide">
+      {resena.texto && <p className="text-base font-medium leading-relaxed text-oliva-900 mb-3">{resena.texto}</p>}
+      <p className="text-sm font-semibold text-oliva-600 uppercase tracking-wide">
         {new Date(resena.created_at).toLocaleDateString("es-ES", {
           day: "numeric",
           month: "long",

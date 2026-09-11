@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { notFound } from "next/navigation";
 import NegocioCard from "@/components/home/NegocioCard";
 import EstadoVacio from "@/components/home/EstadoVacio";
@@ -34,7 +35,7 @@ const PAGE_SIZE = 12;
 const CAP_VALORACION = 300;
 
 const ORDENES = [
-  { valor: "relevancia", etiqueta: "Relevancia" },
+  { valor: "relevancia", etiqueta: "Recomendados" },
   { valor: "valoracion", etiqueta: "Mejor valorados" },
   { valor: "recientes", etiqueta: "Más recientes" },
 ] as const;
@@ -73,8 +74,6 @@ async function getNegocios(
   pagina: number,
   zona: string | null
 ) {
-  console.time("[perf] getNegocios"); // TEMPORAL: quitar tras medir
-  try {
   const supabase = await createClient();
   const SELECT =
     "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
@@ -130,9 +129,6 @@ async function getNegocios(
   if (error || !data) return { negocios: [], total: 0 };
 
   return { negocios: data.map(aTarjeta), total: count ?? data.length };
-  } finally {
-    console.timeEnd("[perf] getNegocios"); // TEMPORAL
-  }
 }
 
 // Zonas disponibles para el desplegable: solo las que existan de verdad
@@ -140,8 +136,6 @@ async function getNegocios(
 // tiene un DISTINCT nativo desde supabase-js). No la lista orientativa de
 // la migración, que es solo una sugerencia para quien dé de alta negocios.
 async function getZonasDisponibles(tipo: Categoria["tipo"]) {
-  console.time("[perf] getZonasDisponibles"); // TEMPORAL: quitar tras medir
-  try {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("negocios")
@@ -156,9 +150,6 @@ async function getZonasDisponibles(tipo: Categoria["tipo"]) {
     data.map((n) => n.zona).filter((z): z is string => Boolean(z))
   );
   return [...unicas].sort((a, b) => a.localeCompare(b, "es"));
-  } finally {
-    console.timeEnd("[perf] getZonasDisponibles"); // TEMPORAL
-  }
 }
 
 interface PageProps {
@@ -234,11 +225,11 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
         </header>
 
         {/* Barra de filtros flotante/sticky tipo glass */}
-        <div className="sticky top-[73px] z-30 mx-auto max-w-6xl px-6 mb-12">
+        <div className="sticky top-[var(--alto-cabecera)] z-30 mx-auto max-w-6xl px-6 mb-12">
           <div className="rounded-[1.5rem] bg-white/70 backdrop-blur-xl p-2 md:p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white ring-1 ring-black/[0.03] flex flex-col md:flex-row md:items-center justify-between gap-4">
             
             <div className="flex items-center gap-3 px-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-oliva-400">
+              <span className="text-sm font-bold uppercase tracking-wider text-oliva-600">
                 Ordenar
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -248,7 +239,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                     <Link
                       key={o.valor}
                       href={hrefConParams({ orden: o.valor, pagina: 1 })}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                      className={`inline-flex min-h-11 items-center rounded-full px-4 text-base font-semibold transition-all ${
                         activo
                           ? "bg-oliva-900 text-white shadow-sm"
                           : "bg-transparent text-oliva-600 hover:bg-white hover:text-oliva-900"
@@ -269,20 +260,31 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
               >
                 <input type="hidden" name="orden" value={orden} />
                 <label htmlFor="zona" className="sr-only">Zona</label>
-                <select
-                  id="zona"
-                  name="zona"
-                  defaultValue={zonaSeleccionada ?? ""}
-                  className="rounded-full bg-white/50 px-4 py-2 text-sm font-medium text-oliva-900 outline-none ring-1 ring-oliva-100 focus:ring-2 focus:ring-terracota-400 transition-shadow appearance-none cursor-pointer"
-                >
-                  <option value="">Todas las zonas</option>
-                  {zonasDisponibles.map((z) => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </select>
+                {/* appearance-none quitaba la flecha del sistema y dejaba
+                    el desplegable idéntico a los chips de "Ordenar" de al
+                    lado: nada decía que se pudiera desplegar. Se repone
+                    con un chevron dibujado y sitio para él a la derecha. */}
+                <div className="relative">
+                  <select
+                    id="zona"
+                    name="zona"
+                    defaultValue={zonaSeleccionada ?? ""}
+                    className="w-full rounded-full bg-white/50 min-h-11 pl-4 pr-10 text-base font-medium text-oliva-900 outline-none ring-1 ring-oliva-100 focus:ring-2 focus:ring-terracota-400 transition-shadow appearance-none cursor-pointer"
+                  >
+                    <option value="">Todas las zonas</option>
+                    {zonasDisponibles.map((z) => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={18}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-oliva-600"
+                  />
+                </div>
                 <button
                   type="submit"
-                  className="rounded-full bg-terracota-500 px-5 py-2 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  className="rounded-full bg-terracota-600 min-h-11 px-5 text-base font-bold text-white hover:bg-terracota-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                   Filtrar
                 </button>
@@ -297,12 +299,11 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
           ) : (
             <>
               <GridStagger key={`${orden}-${zonaSeleccionada}-${pagina}`} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {negociosConFavorito.map((negocio, i) => (
+                {negociosConFavorito.map((negocio) => (
                   <NegocioCard
                     key={negocio.slug}
                     negocio={negocio}
                     rutaActual={`/${categoria}`}
-                    index={i}
                   />
                 ))}
               </GridStagger>
@@ -313,29 +314,29 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                   {pagina > 1 ? (
                     <Link
                       href={hrefConParams({ orden, pagina: pagina - 1 })}
-                      className="rounded-full border border-oliva-100 bg-white px-6 py-2.5 text-sm font-bold text-oliva-900 hover:border-oliva-900 hover:bg-oliva-900 hover:text-white transition-all shadow-sm"
+                      className="rounded-full border border-oliva-100 bg-white min-h-11 inline-flex items-center px-6 text-base font-bold text-oliva-900 hover:border-oliva-900 hover:bg-oliva-900 hover:text-white transition-all shadow-sm"
                     >
                       Anterior
                     </Link>
                   ) : (
-                    <span className="rounded-full border border-oliva-100 bg-white/50 px-6 py-2.5 text-sm font-medium text-oliva-400 cursor-not-allowed">
+                    <span className="rounded-full border border-oliva-100 bg-white/50 min-h-11 inline-flex items-center px-6 text-base font-medium text-oliva-600 cursor-not-allowed">
                       Anterior
                     </span>
                   )}
 
-                  <span className="text-sm font-semibold text-oliva-600 tracking-wide">
-                    {pagina} / {totalPaginas}
+                  <span className="text-base font-semibold text-oliva-700 tracking-wide">
+                    Página {pagina} de {totalPaginas}
                   </span>
 
                   {pagina < totalPaginas ? (
                     <Link
                       href={hrefConParams({ orden, pagina: pagina + 1 })}
-                      className="rounded-full bg-oliva-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
+                      className="rounded-full bg-oliva-900 min-h-11 inline-flex items-center px-6 text-base font-bold text-white hover:bg-terracota-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
                     >
                       Siguiente
                     </Link>
                   ) : (
-                    <span className="rounded-full border border-oliva-100 bg-white/50 px-6 py-2.5 text-sm font-medium text-oliva-400 cursor-not-allowed">
+                    <span className="rounded-full border border-oliva-100 bg-white/50 min-h-11 inline-flex items-center px-6 text-base font-medium text-oliva-600 cursor-not-allowed">
                       Siguiente
                     </span>
                   )}

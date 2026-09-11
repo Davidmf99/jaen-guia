@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
 import NegocioCard from "@/components/home/NegocioCard";
 import GridStagger from "@/components/motion/GridStagger";
 import { createClient } from "@/lib/supabase/server";
@@ -118,11 +118,11 @@ export default async function BuscarPage({ searchParams }: PageProps) {
         <header className="relative overflow-hidden pt-12 pb-16 md:pt-20 md:pb-20">
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
           <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
-            <span className="mb-4 inline-block rounded-full border border-terracota-500/20 bg-terracota-500/10 px-4 py-1.5 text-xs font-bold tracking-[0.2em] uppercase text-terracota-600">
+            <span className="mb-4 inline-block rounded-full border border-terracota-500/20 bg-terracota-500/10 px-4 py-1.5 text-sm font-bold tracking-[0.2em] uppercase text-terracota-600">
               Buscador
             </span>
-            <h1 className="font-display text-5xl md:text-7xl leading-tight tracking-tight text-oliva-950 mb-6">
-              {consulta ? <>Resultados para <span className="text-terracota-500">«{consulta}»</span></> : "Encuentra tu próximo plan."}
+            <h1 className="font-display text-5xl md:text-7xl leading-tight tracking-tight text-oliva-900 mb-6">
+              {consulta ? <>Resultados para <span className="text-terracota-600">«{consulta}»</span></> : "Encuentra tu próximo plan."}
             </h1>
             {consulta && (
               <p className="mx-auto max-w-2xl text-lg text-oliva-700 font-medium">
@@ -143,7 +143,17 @@ export default async function BuscarPage({ searchParams }: PageProps) {
                 Buscar negocios
               </label>
               <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                <SearchX size={20} className={`transition-colors ${consulta && resultados.length === 0 ? "text-terracota-500" : "text-oliva-400 group-focus-within:text-terracota-500"}`} />
+                {/* La lupa tachada significa "sin resultados": no puede ser
+                    el icono por defecto del campo. */}
+                {consulta && resultados.length === 0 ? (
+                  <SearchX size={22} aria-hidden="true" className="text-terracota-600" />
+                ) : (
+                  <Search
+                    size={22}
+                    aria-hidden="true"
+                    className="text-oliva-500 transition-colors group-focus-within:text-terracota-600"
+                  />
+                )}
               </div>
               <input
                 id="q"
@@ -152,12 +162,12 @@ export default async function BuscarPage({ searchParams }: PageProps) {
                 required
                 defaultValue={consulta}
                 placeholder="¿Qué quieres descubrir?"
-                className="w-full rounded-full border border-oliva-100 bg-white py-4 pl-14 pr-32 text-lg text-oliva-900 placeholder:text-oliva-400 outline-none focus:border-terracota-400 focus:ring-4 focus:ring-terracota-500/10 transition-all shadow-sm"
+                className="w-full rounded-full border border-oliva-100 bg-white py-4 pl-14 pr-32 text-lg text-oliva-900 placeholder:text-oliva-500 outline-none focus:border-terracota-400 focus:ring-4 focus:ring-terracota-500/10 transition-all shadow-sm"
               />
               <div className="absolute inset-y-0 right-2 flex items-center">
                 <button
                   type="submit"
-                  className="rounded-full bg-oliva-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-terracota-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
+                  className="rounded-full bg-oliva-900 px-6 py-2.5 text-sm font-bold text-white hover:bg-terracota-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
                 >
                   Buscar
                 </button>
@@ -170,7 +180,7 @@ export default async function BuscarPage({ searchParams }: PageProps) {
           {resultados.length === 0 ? (
             <div className="mx-auto max-w-2xl flex flex-col items-center gap-4 rounded-[2rem] border border-oliva-100 bg-white p-16 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-tierra-50 mb-2">
-                <SearchX size={32} className="text-oliva-400" />
+                <SearchX size={32} aria-hidden="true" className="text-oliva-500" />
               </div>
               <h2 className="text-2xl font-bold text-oliva-900">
                 {consulta ? "Sin resultados" : "Empieza a buscar"}
@@ -182,19 +192,18 @@ export default async function BuscarPage({ searchParams }: PageProps) {
               </p>
               <Link
                 href="/destacados"
-                className="rounded-full bg-tierra-50 px-6 py-3 font-bold text-terracota-600 hover:bg-terracota-500 hover:text-white transition-colors"
+                className="rounded-full bg-tierra-50 px-6 py-3 font-bold text-terracota-600 hover:bg-terracota-600 hover:text-white transition-colors"
               >
                 Ver lugares destacados
               </Link>
             </div>
           ) : (
             <GridStagger key={consulta} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {resultados.map((negocio, i) => (
+              {resultados.map((negocio) => (
                 <NegocioCard
                   key={negocio.slug}
                   negocio={negocio}
                   rutaActual={`/buscar?q=${encodeURIComponent(consulta)}`}
-                  index={i}
                 />
               ))}
             </GridStagger>

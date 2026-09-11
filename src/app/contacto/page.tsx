@@ -10,7 +10,7 @@ export default function ContactoPage() {
         <h1 className="font-display text-4xl font-bold text-oliva-900 mb-6">
           Contacto
         </h1>
-        <div className="prose prose-oliva text-oliva-700 mb-12">
+        <div className="texto-legal text-oliva-700 mb-12">
           <p className="text-lg">
             ¿Tienes alguna duda, sugerencia o quieres que tu negocio aparezca en
             Jaén Guía? Escríbenos y nos pondremos en contacto contigo lo antes
@@ -28,7 +28,7 @@ export default function ContactoPage() {
           </p>
           <a
             href="mailto:hola@jaenguia.com"
-            className="inline-flex items-center justify-center rounded-full bg-terracota-500 px-6 py-3 text-base font-semibold text-white hover:bg-terracota-600 transition-colors"
+            className="inline-flex items-center justify-center rounded-full bg-terracota-600 px-6 py-3 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
           >
             hola@jaenguia.com
           </a>

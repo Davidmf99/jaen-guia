@@ -37,6 +37,16 @@ const INPUT_ERROR = "border-red-400 bg-red-50/60 focus:border-red-500";
 const LABEL =
   "text-sm font-bold tracking-wide uppercase text-terracota-600 mb-2 block";
 
+// Cuadrito visible de las casillas: el <input> real va sr-only, así que
+// el estado marcado y —sobre todo— el de foco se pintan aquí. Sin el
+// peer-focus-visible, navegando con Tab no había forma de saber que
+// estabas sobre "Acepto el aviso legal", que además es obligatorio.
+const CAJA_CHECK =
+  "w-5 h-5 rounded border bg-tierra-50 transition-colors " +
+  "peer-checked:bg-terracota-600 peer-checked:border-terracota-600 " +
+  "peer-focus-visible:outline peer-focus-visible:outline-[3px] " +
+  "peer-focus-visible:outline-offset-2 peer-focus-visible:outline-terracota-600";
+
 const COLORES_FUERZA = [
   "bg-red-400",
   "bg-red-400",
@@ -51,7 +61,7 @@ function MensajeError({ id, texto }: { id: string; texto?: string }) {
     <p
       id={id}
       role="alert"
-      className="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-red-600"
+      className="mt-1.5 flex items-start gap-1.5 text-sm font-semibold text-red-600"
     >
       <AlertCircle size={14} aria-hidden="true" className="mt-px shrink-0" />
       {texto}
@@ -62,8 +72,8 @@ function MensajeError({ id, texto }: { id: string; texto?: string }) {
 function Requisito({ ok, texto }: { ok: boolean; texto: string }) {
   return (
     <li
-      className={`flex items-center gap-1.5 text-xs font-medium ${
-        ok ? "text-oliva-600" : "text-oliva-400"
+      className={`flex items-center gap-1.5 text-sm font-medium ${
+        ok ? "text-oliva-600" : "text-oliva-500"
       }`}
     >
       {ok ? (
@@ -199,7 +209,7 @@ export default function RegistroForm() {
         <p className="text-oliva-700">{estado.mensaje}</p>
         <Link
           href="/login"
-          className="mt-8 inline-block rounded-full bg-oliva-900 px-6 py-3 text-sm font-bold text-white hover:bg-terracota-600 transition-colors"
+          className="mt-8 inline-block rounded-full bg-oliva-900 px-6 py-3 text-sm font-bold text-white hover:bg-terracota-700 transition-colors"
         >
           Ir a iniciar sesión
         </Link>
@@ -268,7 +278,7 @@ export default function RegistroForm() {
             Nombre de usuario
           </label>
           <div className="relative">
-            <span className="absolute inset-y-0 left-4 flex items-center text-oliva-400 font-bold">
+            <span className="absolute inset-y-0 left-4 flex items-center text-oliva-500 font-bold">
               @
             </span>
             <input
@@ -291,7 +301,7 @@ export default function RegistroForm() {
                 <Loader2
                   size={16}
                   aria-hidden="true"
-                  className="animate-spin text-oliva-400"
+                  className="animate-spin text-oliva-500"
                 />
               )}
               {!comprobando && usernameLibre === true && (
@@ -300,7 +310,7 @@ export default function RegistroForm() {
             </span>
           </div>
           {!errorDe("username") && usernameLibre === true && (
-            <p className="mt-1.5 text-xs font-semibold text-oliva-600">
+            <p className="mt-1.5 text-sm font-semibold text-oliva-600">
               @{valores.username} está libre.
             </p>
           )}
@@ -352,7 +362,7 @@ export default function RegistroForm() {
                 type="button"
                 onClick={() => setVerPassword((v) => !v)}
                 aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute inset-y-0 right-3 flex items-center text-oliva-400 hover:text-oliva-700 transition-colors"
+                className="absolute inset-y-0 right-3 flex items-center text-oliva-500 hover:text-oliva-700 transition-colors"
               >
                 {verPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -381,13 +391,13 @@ export default function RegistroForm() {
                 type="button"
                 onClick={() => setVerConfirm((v) => !v)}
                 aria-label={verConfirm ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute inset-y-0 right-3 flex items-center text-oliva-400 hover:text-oliva-700 transition-colors"
+                className="absolute inset-y-0 right-3 flex items-center text-oliva-500 hover:text-oliva-700 transition-colors"
               >
                 {verConfirm ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
             </div>
             {passwordsCoinciden && !errorDe("confirmPassword") && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-oliva-600">
+              <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-oliva-600">
                 <Check size={13} aria-hidden="true" />
                 Coinciden.
               </p>
@@ -417,7 +427,7 @@ export default function RegistroForm() {
                   />
                 ))}
               </div>
-              <span className="text-xs font-bold text-oliva-700">{fuerza.etiqueta}</span>
+              <span className="text-sm font-bold text-oliva-700">{fuerza.etiqueta}</span>
             </div>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               <Requisito ok={requisitos.longitud} texto="8 caracteres o más" />
@@ -437,7 +447,11 @@ export default function RegistroForm() {
                 name="es_de_jaen"
                 className="peer sr-only"
               />
-              <div className="w-5 h-5 rounded border border-oliva-100 bg-tierra-50 peer-checked:bg-terracota-500 peer-checked:border-terracota-500 transition-colors" />
+              {/* El input real es sr-only, así que su contorno de foco cae
+                  sobre un elemento recortado a 1px y no se ve: quien navega
+                  con Tab no sabía dónde estaba. El foco se pinta aquí, sobre
+                  el cuadrito que sí es visible. */}
+              <div className={`${CAJA_CHECK} border-oliva-100`} />
               <svg
                 className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
                 fill="none"
@@ -453,7 +467,7 @@ export default function RegistroForm() {
               <span className="text-sm font-bold text-oliva-900 group-hover:text-terracota-600 transition-colors">
                 Soy residente de la provincia de Jaén
               </span>
-              <span className="text-xs text-oliva-500">
+              <span className="text-sm text-oliva-600">
                 Nos ayuda a destacar las reseñas de los locales.
               </span>
             </div>
@@ -472,7 +486,7 @@ export default function RegistroForm() {
                 aria-describedby={descripcion("aceptaTerminos")}
               />
               <div
-                className={`w-5 h-5 rounded border bg-tierra-50 peer-checked:bg-terracota-500 peer-checked:border-terracota-500 transition-colors ${
+                className={`${CAJA_CHECK} ${
                   errorDe("aceptaTerminos") ? "border-red-400" : "border-oliva-100"
                 }`}
               />
@@ -491,14 +505,14 @@ export default function RegistroForm() {
               Acepto el{" "}
               <Link
                 href="/aviso-legal"
-                className="font-bold text-terracota-600 hover:text-terracota-500 underline"
+                className="font-bold text-terracota-600 hover:text-terracota-700 underline"
               >
                 aviso legal
               </Link>{" "}
               y la{" "}
               <Link
                 href="/privacidad"
-                className="font-bold text-terracota-600 hover:text-terracota-500 underline"
+                className="font-bold text-terracota-600 hover:text-terracota-700 underline"
               >
                 política de privacidad
               </Link>
@@ -536,10 +550,10 @@ export default function RegistroForm() {
             })
           }
           aria-disabled={hayErrores}
-          className="mt-6 w-full rounded-full bg-oliva-900 px-4 py-3.5 text-sm font-bold text-white hover:bg-terracota-600 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="mt-6 w-full rounded-full bg-oliva-900 px-4 py-3.5 text-sm font-bold text-white hover:bg-terracota-700 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md disabled:opacity-60 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {enviando && <Loader2 size={16} aria-hidden="true" className="animate-spin" />}
-          {enviando ? "Creando cuenta…" : "Comenzar a explorar"}
+          {enviando ? "Creando cuenta…" : "Crear mi cuenta"}
         </button>
       </form>
 
@@ -547,7 +561,7 @@ export default function RegistroForm() {
         ¿Ya tienes cuenta?{" "}
         <Link
           href="/login"
-          className="font-bold text-terracota-600 hover:text-terracota-500 transition-colors"
+          className="font-bold text-terracota-600 hover:text-terracota-700 transition-colors"
         >
           Inicia sesión aquí
         </Link>

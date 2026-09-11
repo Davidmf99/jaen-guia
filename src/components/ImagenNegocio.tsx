@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ImageOff } from "lucide-react";
 import { gradientePara } from "@/lib/gradiente";
 import { atribucionValida } from "@/lib/atribucion";
 
@@ -16,6 +15,24 @@ interface Props {
   // quedar tapada. En las tarjetas (top-left ya lo usa la categoría/
   // puntuación) el default "bottom-right" va bien.
   posicionAtribucion?: "bottom-right" | "top-right";
+  /**
+   * Solo la foto grande de la ficha de negocio, que es lo primero que se
+   * ve. El resto va en diferido: en la portada había tres fotos de
+   * 332, 169 y 128 KB descargándose de golpe para tarjetas de 160px.
+   */
+  prioritaria?: boolean;
+}
+
+// Iniciales del negocio para el hueco sin foto. Antes se pintaba un
+// icono de "imagen rota", que se lee como "esta web está mal", no como
+// "este sitio no tiene foto".
+function iniciales(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .filter((p) => p.length > 2)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 // Pensado para vivir dentro de un contenedor con position: relative
@@ -30,36 +47,52 @@ export default function ImagenNegocio({
   googlePhotoName,
   googlePhotoAtribucion,
   posicionAtribucion = "bottom-right",
+  prioritaria = false,
 }: Props) {
   const [fallo, setFallo] = useState(false);
 
-  const src = googlePhotoName ? `/api/foto-negocio/${negocioId}` : imagenPortada;
+  const base = googlePhotoName ? `/api/foto-negocio/${negocioId}` : imagenPortada;
   // Google a veces manda un aviso legal en lugar de un autor; en ese
   // caso esto es null y la etiqueta no se pinta (ver lib/atribucion.ts).
   const atribucion = atribucionValida(googlePhotoAtribucion);
 
-  if (!src || fallo) {
+  if (!base || fallo) {
     return (
       <div
         className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${gradientePara(nombre)}`}
       >
-        <ImageOff size={22} aria-hidden="true" className="text-white/70" />
+        <span
+          aria-hidden="true"
+          className="font-display text-4xl font-semibold text-white/90"
+        >
+          {iniciales(nombre)}
+        </span>
       </div>
     );
   }
+
+  // Solo el proxy propio sabe servir varios anchos; una URL de portada
+  // subida al panel es un fichero suelto y se sirve tal cual.
+  const srcSet = googlePhotoName
+    ? `${base}?w=400 400w, ${base}?w=800 800w, ${base}?w=1200 1200w`
+    : undefined;
 
   return (
     <div className="absolute inset-0">
       {/* eslint-disable-next-line @next/next/no-img-element -- proxy propio, no una URL remota directa */}
       <img
-        src={src}
-        alt={nombre}
+        src={googlePhotoName ? `${base}?w=800` : base}
+        srcSet={srcSet}
+        sizes={prioritaria ? "(min-width: 768px) 1100px, 100vw" : "(min-width: 768px) 380px, 92vw"}
+        alt=""
+        loading={prioritaria ? "eager" : "lazy"}
+        decoding="async"
         onError={() => setFallo(true)}
         className="h-full w-full object-cover"
       />
       {googlePhotoName && atribucion && (
         <span
-          className={`absolute right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] leading-none text-white/90 ${
+          className={`absolute right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs leading-tight text-white ${
             posicionAtribucion === "top-right" ? "top-1" : "bottom-1"
           }`}
         >

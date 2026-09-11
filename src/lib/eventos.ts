@@ -7,17 +7,26 @@ import type { Categoria } from "@/types";
 // para calcular la huella de deduplicación.
 const ZONA = "Europe/Madrid";
 
+// Mes y día de la semana completos, y sin año en el formato base: el año
+// se añade solo cuando no es el que corre (ver `anioSiSobra`). Abreviar a
+// "18 de sept. 2026 · 20:00" ahorraba tres caracteres a cambio de que la
+// fecha se lea peor, que es justo lo contrario de lo que necesita quien
+// entra a mirar si esta tarde hay algo.
 const FORMATO = new Intl.DateTimeFormat("es-ES", {
   timeZone: ZONA,
-  day: "2-digit",
-  month: "short",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
 });
 
-type Partes = Record<"day" | "month" | "year" | "hour" | "minute", string>;
+type Partes = Record<
+  "weekday" | "day" | "month" | "year" | "hour" | "minute",
+  string
+>;
 
 function partes(iso: string): Partes {
   return Object.fromEntries(
@@ -25,14 +34,83 @@ function partes(iso: string): Partes {
   ) as Partes;
 }
 
+function mayuscula(texto: string) {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 /**
- * "18 de sept. 2026 · 20:00", o sin hora si el evento es de día completo
- * (ferias, exposiciones), donde la hora de inicio no significa nada.
+ * Día siguiente a una fecha "YYYY-MM-DD", en hora de Jaén.
+ *
+ * Se suman 24 h sobre el mediodía UTC de ese día y no sobre el instante
+ * real: a mediodía sobran doce horas de margen por cada lado, así que el
+ * cambio de hora de marzo (donde sumar 24 h a las 23:30 se salta un día
+ * entero) no puede desplazar el resultado.
  */
-export function fechaEvento(iso: string, esTodoElDia: boolean) {
-  const { day, month, year, hour, minute } = partes(iso);
-  const fecha = `${day} de ${month}. ${year}`;
-  return esTodoElDia ? fecha : `${fecha} · ${hour}:${minute}`;
+function diaSiguiente(diaISO: string) {
+  const mediodia = new Date(`${diaISO}T12:00:00Z`);
+  return diaMadrid(new Date(mediodia.getTime() + 86_400_000));
+}
+
+/** El año solo se dice cuando no es el que corre; si no, es ruido. */
+function anioSiSobra(iso: string, ahora: Date) {
+  const anio = partes(iso).year;
+  return anio === partes(ahora.toISOString()).year ? "" : ` de ${anio}`;
+}
+
+/**
+ * Fecha de un evento tal y como la diría alguien de viva voz:
+ * "Hoy a las 20:00", "Mañana a las 20:00", "Sábado 18 de octubre a las
+ * 20:00". Sin hora si el evento es de día completo (ferias,
+ * exposiciones), donde la hora de inicio no significa nada.
+ *
+ * `ahora` es parámetro y no `new Date()` a secas para que se pueda
+ * probar, y porque quien llama a esto está siempre en el servidor: la
+ * cadena ya formateada es la que viaja a las tarjetas, que son cliente.
+ * Calcular el "hoy" en el navegador descuadraría el HTML del servidor.
+ */
+export function fechaEvento(
+  iso: string,
+  esTodoElDia: boolean,
+  ahora = new Date()
+) {
+  return formatearFecha(iso, esTodoElDia, ahora, true);
+}
+
+/**
+ * Igual, pero sin "Hoy" ni "Mañana": siempre la fecha absoluta.
+ *
+ * Es lo que tiene que ir en el openGraph de la ficha. WhatsApp, Telegram
+ * y las redes cachean la tarjeta del enlace la primera vez que alguien lo
+ * comparte, así que un "Hoy a las 20:00" se quedaría diciendo "Hoy"
+ * durante semanas.
+ */
+export function fechaEventoAbsoluta(iso: string, esTodoElDia: boolean) {
+  return formatearFecha(iso, esTodoElDia, new Date(), false);
+}
+
+function formatearFecha(
+  iso: string,
+  esTodoElDia: boolean,
+  ahora: Date,
+  permitirRelativo: boolean
+) {
+  const p = partes(iso);
+  const relativo = permitirRelativo ? diaRelativo(iso, ahora) : null;
+  const fecha =
+    relativo ??
+    `${mayuscula(p.weekday)} ${p.day} de ${p.month}${anioSiSobra(iso, ahora)}`;
+
+  return esTodoElDia ? fecha : `${fecha} a las ${p.hour}:${p.minute}`;
+}
+
+/** "Hoy" / "Mañana", o null si la fecha cae más lejos. */
+function diaRelativo(iso: string, ahora: Date): string | null {
+  const hoy = diaMadrid(ahora);
+  const cuando = diaMadrid(new Date(iso));
+
+  if (cuando === hoy) return "Hoy";
+  if (cuando === diaSiguiente(hoy)) return "Mañana";
+  return null;
 }
 
 /**
@@ -50,30 +128,51 @@ export function etiquetaFecha(
   esTodoElDia: boolean,
   ahora = new Date()
 ): string {
-  if (!fechaFin) return fechaEvento(fechaInicio, esTodoElDia);
+  if (!fechaFin) return fechaEvento(fechaInicio, esTodoElDia, ahora);
 
-  if (dia(fechaInicio) === dia(fechaFin)) {
-    return fechaEvento(fechaInicio, esTodoElDia);
+  if (diaMadrid(new Date(fechaInicio)) === diaMadrid(new Date(fechaFin))) {
+    return fechaEvento(fechaInicio, esTodoElDia, ahora);
   }
-  if (new Date(fechaInicio) <= ahora) return `Hasta el ${soloFecha(fechaFin)}`;
-  return `Del ${soloFecha(fechaInicio)} al ${soloFecha(fechaFin)}`;
+
+  if (new Date(fechaInicio) <= ahora) {
+    // Que hoy sea el último día es la información más accionable que
+    // puede dar una tarjeta, así que se dice en esos términos.
+    const relativo = diaRelativo(fechaFin, ahora);
+    if (relativo === "Hoy") return "Hoy es el último día";
+    if (relativo === "Mañana") return "Hasta mañana";
+    return `Hasta el ${soloFecha(fechaFin, ahora)}`;
+  }
+
+  // Dentro del mismo mes no hace falta repetirlo: "Del 5 al 25 de octubre".
+  const inicio = partes(fechaInicio);
+  const fin = partes(fechaFin);
+  if (inicio.month === fin.month && inicio.year === fin.year) {
+    return `Del ${inicio.day} al ${soloFecha(fechaFin, ahora)}`;
+  }
+
+  return `Del ${soloFecha(fechaInicio, ahora)} al ${soloFecha(fechaFin, ahora)}`;
 }
 
-/** Día local en Jaén, para comparar dos instantes sin la hora. */
-function dia(iso: string) {
-  const { day, month, year } = partes(iso);
-  return `${year}-${month}-${day}`;
-}
-
-function soloFecha(iso: string) {
+function soloFecha(iso: string, ahora: Date) {
   const { day, month } = partes(iso);
-  return `${day} de ${month}`;
+  return `${day} de ${month}${anioSiSobra(iso, ahora)}`;
 }
+
+// El hueco de imagen quiere el mes en tres letras y en mayúsculas
+// ("SEPT"), que no es lo que da FORMATO desde que este pinta el mes
+// completo. De ahí un formateador aparte solo para eso.
+const FORMATO_CORTO = new Intl.DateTimeFormat("es-ES", {
+  timeZone: ZONA,
+  day: "2-digit",
+  month: "short",
+});
 
 /** Día y mes sueltos, para el hueco de imagen de los eventos sin foto. */
 export function diaYMes(iso: string) {
-  const { day, month } = partes(iso);
-  return { dia: day, mes: month.replace(".", "").toUpperCase() };
+  const p = Object.fromEntries(
+    FORMATO_CORTO.formatToParts(new Date(iso)).map((x) => [x.type, x.value])
+  ) as Record<"day" | "month", string>;
+  return { dia: p.day, mes: p.month.replace(".", "").toUpperCase() };
 }
 
 // Tinte del hueco de imagen cuando el evento no tiene foto. Va por

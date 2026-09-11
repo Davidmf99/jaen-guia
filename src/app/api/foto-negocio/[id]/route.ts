@@ -8,7 +8,21 @@ import { createClient } from "@/lib/supabase/server";
 // google_photo_name contra Google en el momento, con un
 // Cache-Control corto (ver abajo).
 const GOOGLE_PHOTO_MEDIA_URL = "https://places.googleapis.com/v1";
-const MAX_WIDTH_PX = 800;
+
+// Anchos que se pueden pedir con ?w=. Es una lista cerrada y no un número
+// libre a propósito: si no, cualquiera podría generar infinitas variantes
+// y cada una sería una llamada nueva (y facturable) a Google.
+//
+// Antes solo se servía a 800px para todo. Una tarjeta mide ~160px de
+// ancho en un móvil, y se estaban descargando 332 KB para pintarla.
+const ANCHOS = [400, 800, 1200] as const;
+const ANCHO_POR_DEFECTO = 800;
+
+function anchoPedido(url: string) {
+  const valor = Number(new URL(url).searchParams.get("w"));
+  return (ANCHOS as readonly number[]).includes(valor) ? valor : ANCHO_POR_DEFECTO;
+}
+
 // 3 días. Suficiente para no golpear a Google en cada visita, sin
 // llegar a ser una caché "permanente".
 const CACHE_CONTROL = "public, max-age=259200";
@@ -17,8 +31,9 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: Request, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
   const { id } = await params;
+  const maxWidthPx = anchoPedido(request.url);
 
   const supabase = await createClient();
   const { data: negocio } = await supabase
@@ -38,7 +53,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const googleRes = await fetch(
-    `${GOOGLE_PHOTO_MEDIA_URL}/${negocio.google_photo_name}/media?maxWidthPx=${MAX_WIDTH_PX}`,
+    `${GOOGLE_PHOTO_MEDIA_URL}/${negocio.google_photo_name}/media?maxWidthPx=${maxWidthPx}`,
     { headers: { "X-Goog-Api-Key": apiKey } }
   );
 

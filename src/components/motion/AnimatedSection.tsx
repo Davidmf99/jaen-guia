@@ -1,6 +1,3 @@
-"use client";
-
-import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 interface Props {
@@ -8,22 +5,16 @@ interface Props {
   className?: string;
 }
 
-// Fade-in + desplazamiento vertical corto al entrar en el viewport, una
-// sola vez (viewport once: true — no se repite al subir/bajar). Con
-// prefers-reduced-motion activado, se queda en un fade simple sin
-// desplazamiento.
+// Sección normal. Antes envolvía su contenido en un motion.section con
+// `initial={{ opacity: 0 }}` y `whileInView`, de modo que el HTML del
+// servidor salía con style="opacity:0" y la sección solo se hacía
+// visible cuando Motion hidrataba y un IntersectionObserver disparaba.
+// Con el JS lento, caído o bloqueado, la página quedaba en blanco.
+//
+// Se mantiene el componente (y no se sustituye por <section> en los ocho
+// sitios que lo usan) para no repetir la decisión: si algún día vuelve a
+// haber animación de entrada, tiene que ser CSS y partiendo de un estado
+// en reposo visible, como .animar-entrada en globals.css.
 export default function AnimatedSection({ children, className }: Props) {
-  const reducirMovimiento = useReducedMotion();
-
-  return (
-    <motion.section
-      className={className}
-      initial={{ opacity: 0, y: reducirMovimiento ? 0 : 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: reducirMovimiento ? 0.3 : 0.4, ease: "easeOut" }}
-    >
-      {children}
-    </motion.section>
-  );
+  return <section className={className}>{children}</section>;
 }

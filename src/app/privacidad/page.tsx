@@ -11,7 +11,7 @@ export default function PrivacidadPage() {
         <h1 className="font-display text-4xl font-bold text-oliva-900 mb-8">
           Política de Privacidad
         </h1>
-        <div className="prose prose-oliva text-oliva-700">
+        <div className="texto-legal text-oliva-700">
           <p>
             En Jaén Guía estamos comprometidos con la protección de la privacidad
             y el uso correcto de los datos personales.

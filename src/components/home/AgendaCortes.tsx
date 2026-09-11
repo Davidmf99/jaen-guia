@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
-import GridStagger from "@/components/motion/GridStagger";
 import EventoCard, { type EventoTarjeta } from "./EventoCard";
 
 export interface GrupoAgenda {
@@ -19,19 +18,35 @@ interface Props {
 }
 
 const VACIO: Record<GrupoAgenda["clave"], string> = {
-  hoy: "Hoy no hay nada publicado todavía.",
-  manana: "Mañana no hay nada publicado todavía.",
-  finde: "Este fin de semana no hay nada publicado todavía.",
+  hoy: "Hoy no hay ningún plan publicado en Jaén.",
+  manana: "Mañana no hay ningún plan publicado en Jaén.",
+  finde: "Este fin de semana no hay ningún plan publicado en Jaén.",
   proximos: "Todavía no hay eventos programados en Jaén.",
 };
 
-export default function AgendaCortes({ grupos }: Props) {
-  // Se abre por el primer corte con algo que enseñar: si hoy no hay nada,
-  // la sección no arranca en un hueco vacío.
-  const inicial = grupos.find((g) => g.eventos.length > 0) ?? grupos[0];
-  const [activa, setActiva] = useState(inicial.clave);
+/** Cómo se ofrece un corte desde el hueco vacío de otro. */
+const IR_A: Record<GrupoAgenda["clave"], string> = {
+  hoy: "hoy",
+  manana: "mañana",
+  finde: "este fin de semana",
+  proximos: "los próximos días",
+};
 
-  const grupo = grupos.find((g) => g.clave === activa) ?? inicial;
+export default function AgendaCortes({ grupos }: Props) {
+  // Siempre arranca en "Hoy", tenga o no tenga eventos. Antes se abría
+  // por el primer corte con algo que enseñar, así que en un día sin nada
+  // la pestaña activa saltaba sola a "Próximos" y el usuario veía planes
+  // de dentro de dos semanas creyendo que eran de esta tarde. Un hueco
+  // vacío explicado informa; un salto silencioso engaña.
+  const [activa, setActiva] = useState<GrupoAgenda["clave"]>(grupos[0].clave);
+
+  const grupo = grupos.find((g) => g.clave === activa) ?? grupos[0];
+
+  // Para el hueco vacío: el siguiente corte que sí tenga algo, para
+  // ofrecerlo con un botón en vez de dejar al usuario en un callejón.
+  const alternativa = grupos.find(
+    (g) => g.clave !== grupo.clave && g.eventos.length > 0
+  );
 
   return (
     <>
@@ -42,14 +57,18 @@ export default function AgendaCortes({ grupos }: Props) {
         {grupo.eventos.length > 0 && (
           <Link
             href={grupo.href}
-            className="text-sm font-medium text-terracota-600 hover:underline"
+            className="inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
           >
             Ver todos &rsaquo;
           </Link>
         )}
       </div>
 
-      <div role="tablist" aria-label="Cuándo" className="mb-5 flex flex-wrap gap-2">
+      <div
+        role="tablist"
+        aria-label="Cuándo"
+        className="mb-5 flex flex-wrap gap-2"
+      >
         {grupos.map((g) => {
           const activo = g.clave === activa;
           return (
@@ -59,45 +78,60 @@ export default function AgendaCortes({ grupos }: Props) {
               role="tab"
               aria-selected={activo}
               onClick={() => setActiva(g.clave)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex min-h-11 items-center rounded-full px-4 text-base font-medium transition-colors ${
                 activo
                   ? "bg-oliva-900 text-white"
                   : "border border-oliva-100 bg-white text-oliva-700 hover:bg-oliva-100"
               }`}
             >
               {g.etiqueta}
-              {g.eventos.length > 0 && (
-                <span className={activo ? "ml-1.5 text-white/70" : "ml-1.5 text-oliva-400"}>
-                  {g.eventos.length}
-                </span>
-              )}
+              {/* El contador se pinta también cuando es 0. Escondiéndolo,
+                  una pestaña vacía y una llena se veían idénticas y nada
+                  avisaba de que hoy no había nada. */}
+              <span
+                className={`ml-1.5 ${activo ? "text-white/80" : "text-oliva-500"}`}
+              >
+                {g.eventos.length}
+              </span>
             </button>
           );
         })}
       </div>
 
       {grupo.eventos.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <CalendarDays size={26} aria-hidden="true" className="text-oliva-400" />
-          <p className="text-oliva-600">{VACIO[grupo.clave]}</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-oliva-100 bg-white px-6 py-10 text-center">
+          <CalendarDays
+            size={30}
+            aria-hidden="true"
+            className="text-oliva-500"
+          />
+          <p className="text-lg font-semibold text-oliva-900">
+            {VACIO[grupo.clave]}
+          </p>
+
+          {alternativa && (
+            <button
+              type="button"
+              onClick={() => setActiva(alternativa.clave)}
+              className="mt-1 flex min-h-11 items-center rounded-full bg-oliva-900 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
+            >
+              Ver qué hay {IR_A[alternativa.clave]} ({alternativa.eventos.length})
+            </button>
+          )}
+
           <Link
             href="/panel"
-            className="text-sm font-semibold text-terracota-600 hover:underline"
+            className="mt-1 text-base font-semibold text-terracota-600 hover:underline"
           >
             ¿Tienes un negocio? Publica lo que pasa en tu local &rsaquo;
           </Link>
         </div>
       ) : (
-        // key: al cambiar de corte se remonta la rejilla para que el
-        // escalonado de entrada vuelva a correr.
-        <GridStagger
-          key={grupo.clave}
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3"
-        >
-          {grupo.eventos.map((evento, i) => (
-            <EventoCard key={evento.id} evento={evento} index={i} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {grupo.eventos.map((evento) => (
+            <EventoCard key={evento.id} evento={evento} />
           ))}
-        </GridStagger>
+        </div>
       )}
     </>
   );

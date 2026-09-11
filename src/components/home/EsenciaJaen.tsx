@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import ParallaxLayer from "@/components/motion/ParallaxLayer";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 
 export default function EsenciaJaen() {
@@ -17,7 +16,7 @@ export default function EsenciaJaen() {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.04] mix-blend-overlay pointer-events-none" />
 
           <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center justify-center text-white">
-            <span className="mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-bold tracking-[0.2em] uppercase text-oliva-100 backdrop-blur-sm">
+            <span className="mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-bold tracking-[0.2em] uppercase text-oliva-100 backdrop-blur-sm">
               Identidad
             </span>
             <h2 className="font-display text-5xl md:text-7xl font-semibold tracking-tight mb-6">
@@ -33,7 +32,7 @@ export default function EsenciaJaen() {
               className="relative overflow-hidden rounded-full bg-white px-8 py-4 text-sm font-bold text-oliva-900 transition-transform hover:scale-[1.03] active:scale-[0.97] shadow-[0_0_40px_rgba(255,255,255,0.1)]"
             >
               <span className="flex items-center gap-2">
-                Descubre el mar de olivos
+                Ver planes de naturaleza
                 <ArrowRight size={16} strokeWidth={2.5} />
               </span>
             </Link>

@@ -68,12 +68,12 @@ export default function MenuMovil({ enlaces, mostrarLogin }: Props) {
         aria-expanded={abierto}
         aria-controls="menu-movil"
         aria-label={abierto ? "Cerrar menú" : "Abrir menú"}
-        className="flex items-center justify-center rounded-full border border-oliva-100 p-2 text-oliva-700 hover:bg-oliva-100 transition-colors"
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-oliva-100 text-oliva-700 hover:bg-oliva-100 transition-colors"
       >
         {abierto ? (
-          <X size={20} aria-hidden="true" />
+          <X size={24} aria-hidden="true" />
         ) : (
-          <Menu size={20} aria-hidden="true" />
+          <Menu size={24} aria-hidden="true" />
         )}
       </button>
 
@@ -91,7 +91,7 @@ export default function MenuMovil({ enlaces, mostrarLogin }: Props) {
               key={enlace.href}
               href={enlace.href}
               onClick={() => setAbierto(false)}
-              className="border-b border-oliva-100/60 py-3 text-sm font-medium text-oliva-700 last:border-b-0 hover:text-terracota-600 transition-colors"
+              className="flex min-h-12 items-center border-b border-oliva-100/60 text-base font-medium text-oliva-700 last:border-b-0 hover:text-terracota-600 transition-colors"
             >
               {enlace.label}
             </Link>
@@ -101,7 +101,7 @@ export default function MenuMovil({ enlaces, mostrarLogin }: Props) {
             <Link
               href="/login"
               onClick={() => setAbierto(false)}
-              className="mt-3 mb-2 rounded-full border border-oliva-600 px-4 py-2 text-center text-sm font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
+              className="mt-3 mb-2 flex min-h-11 items-center justify-center rounded-full border border-oliva-600 px-4 text-base font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
             >
               Iniciar sesión
             </Link>

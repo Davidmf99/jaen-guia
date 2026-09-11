@@ -15,8 +15,8 @@ interface Props {
 }
 
 const CAMPO =
-  "mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2 text-sm outline-none focus:border-oliva-400";
-const ETIQUETA = "text-sm font-medium text-oliva-700";
+  "mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400";
+const ETIQUETA = "block text-base font-medium text-oliva-700";
 
 export default function FormularioEvento({
   negocioId,
@@ -54,13 +54,13 @@ export default function FormularioEvento({
         />
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-oliva-700">
+      <label className="flex min-h-11 items-center gap-2.5 text-base text-oliva-700">
         <input
           type="checkbox"
           name="es_todo_el_dia"
           checked={todoElDia}
           onChange={(e) => setTodoElDia(e.target.checked)}
-          className="h-4 w-4 accent-terracota-500"
+          className="h-5 w-5 accent-terracota-600"
         />
         Dura todo el día (ferias, exposiciones): no se muestra la hora
       </label>
@@ -83,7 +83,7 @@ export default function FormularioEvento({
             Fin <span className="font-normal text-oliva-500">(opcional)</span>
           </label>
           <input id="fecha_fin" name="fecha_fin" type={tipoFecha} className={CAMPO} />
-          <p className="mt-1 text-xs text-oliva-600">
+          <p className="mt-1 text-sm text-oliva-600">
             Solo si dura varios días. Si lo dejas vacío se entiende que acaba
             ese mismo día.
           </p>
@@ -119,7 +119,7 @@ export default function FormularioEvento({
 
       <div>
         <label htmlFor="categoria_id" className={ETIQUETA}>
-          Sección
+          Categoría
         </label>
         <select
           id="categoria_id"
@@ -127,7 +127,7 @@ export default function FormularioEvento({
           defaultValue={categoriaIdNegocio ?? ""}
           className={CAMPO}
         >
-          <option value="">Sin sección</option>
+          <option value="">Sin categoría</option>
           {categorias.map((categoria) => (
             <option key={categoria.id} value={categoria.id}>
               {categoria.nombre}
@@ -151,13 +151,13 @@ export default function FormularioEvento({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end">
-        <label className="flex items-center gap-2 text-sm text-oliva-700">
+        <label className="flex min-h-11 items-center gap-2.5 text-base text-oliva-700">
           <input
             type="checkbox"
             name="es_gratis"
             checked={gratis}
             onChange={(e) => setGratis(e.target.checked)}
-            className="h-4 w-4 accent-terracota-500"
+            className="h-5 w-5 accent-terracota-600"
           />
           Entrada gratuita
         </label>
@@ -181,7 +181,7 @@ export default function FormularioEvento({
 
       <BotonEnviar
         textoEnviando="Publicando…"
-        className="rounded-full bg-terracota-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+        className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
       >
         <CalendarPlus size={16} aria-hidden="true" />
         Publicar evento

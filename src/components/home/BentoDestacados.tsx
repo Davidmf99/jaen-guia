@@ -66,15 +66,15 @@ export default async function BentoDestacados() {
 
   return (
     <AnimatedSection className="mx-auto max-w-6xl px-6 py-24">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-sans text-3xl font-bold tracking-tight text-oliva-900">
           Destacados en Jaén
         </h2>
         <Link
           href="/destacados"
-          className="text-sm font-medium text-terracota-600 hover:underline"
+          className="inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
         >
-          Más &rsaquo;
+          Ver todos los destacados &rsaquo;
         </Link>
       </div>
 
@@ -83,16 +83,15 @@ export default async function BentoDestacados() {
       ) : (
         <GridStagger className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="md:col-span-1">
-            <NegocioCard negocio={principal} rutaActual="/" index={0} />
+            <NegocioCard negocio={principal} rutaActual="/" />
           </div>
           {resto.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
-              {resto.map((negocio, i) => (
+              {resto.map((negocio) => (
                 <NegocioCard
                   key={negocio.slug}
                   negocio={negocio}
                   rutaActual="/"
-                  index={i + 1}
                 />
               ))}
             </div>

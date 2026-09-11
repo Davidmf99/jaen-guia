@@ -1,30 +1,8 @@
-"use client";
-
 import Link from "next/link";
-import { motion, useReducedMotion, type Variants } from "motion/react";
 import { Star } from "lucide-react";
 import type { Negocio } from "@/types";
 import BotonFavorito from "@/components/BotonFavorito";
 import ImagenNegocio from "@/components/ImagenNegocio";
-
-// Estado de entrada de la propia tarjeta: espera a que un ancestro
-// GridStagger la lleve de "hidden" a "visible". Fuera de un
-// GridStagger, al no recibir nunca el estado "visible", se queda
-// estática — por eso todo listado de NegocioCard debe envolver su grid
-// en GridStagger.
-//
-// El escalonado (delay creciente entre tarjeta y tarjeta) se calcula
-// aquí a partir de `index`, con tope: a partir de STAGGER_CAP todas
-// comparten el mismo delay fijo (el de la última con delay creciente),
-// en vez de seguir sumando — así un listado grande como /gastronomia
-// (20+ negocios) no deja las últimas tarjetas esperando varios
-// segundos.
-const STAGGER_PASO = 0.06;
-const STAGGER_CAP = 10;
-
-function delayEntrada(index: number) {
-  return Math.min(index, STAGGER_CAP - 1) * STAGGER_PASO;
-}
 
 interface Props {
   negocio: Pick<
@@ -39,8 +17,6 @@ interface Props {
     | "puntuacion_media"
   > & { categoriaNombre?: string; esFavorito?: boolean };
   rutaActual: string;
-  /** Posición dentro de su grid, para el delay escalonado (ver arriba). */
-  index?: number;
 }
 
 // Relación de aspecto fija para la imagen, igual en todas las tarjetas.
@@ -54,21 +30,13 @@ interface Props {
 // cambia de tamaño es la mediana, que crece hasta igualarla.
 const ASPECTO_IMAGEN = "aspect-[16/10]";
 
-export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
-  const reducirMovimiento = useReducedMotion();
-
-  const delay = reducirMovimiento ? 0 : delayEntrada(index);
-  const variantes: Variants = reducirMovimiento
-    ? { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.3, ease: "easeOut", delay } } }
-    : { hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", delay } } };
-
+// Componente de servidor desde que se retiró el escalonado de entrada.
+// Antes era cliente y salía del servidor con style="opacity:0", a la
+// espera de que un GridStagger lo pasara a "visible": si el JavaScript
+// no llegaba a ejecutarse, los listados se veían vacíos.
+export default function NegocioCard({ negocio, rutaActual }: Props) {
   return (
-    <motion.article
-      variants={variantes}
-      whileHover={reducirMovimiento ? undefined : { y: -2 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow"
-    >
+    <article className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
       <div className={`relative ${ASPECTO_IMAGEN} overflow-hidden`}>
         <ImagenNegocio
           negocioId={negocio.id}
@@ -77,11 +45,15 @@ export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
           googlePhotoName={negocio.google_photo_name}
           googlePhotoAtribucion={negocio.google_photo_atribucion}
         />
-        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-oliva-900">
+        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
           {negocio.categoriaNombre && <span>{negocio.categoriaNombre}</span>}
           {negocio.puntuacion_media && (
             <span className="flex items-center gap-0.5 text-terracota-600">
-              <Star size={12} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
+              <Star
+                size={14}
+                aria-hidden="true"
+                className="fill-terracota-500 text-terracota-500"
+              />
               {negocio.puntuacion_media.toFixed(1)}
             </span>
           )}
@@ -105,11 +77,11 @@ export default function NegocioCard({ negocio, rutaActual, index = 0 }: Props) {
           </Link>
         </h3>
         {negocio.descripcion_corta && (
-          <p className="mt-1 text-sm text-oliva-700 line-clamp-2">
+          <p className="mt-1 text-base text-oliva-700 line-clamp-2">
             {negocio.descripcion_corta}
           </p>
         )}
       </div>
-    </motion.article>
+    </article>
   );
 }

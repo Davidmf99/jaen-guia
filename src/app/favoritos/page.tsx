@@ -76,12 +76,11 @@ export default async function FavoritosPage() {
           <EstadoVacio mensaje="Aún no has guardado ningún negocio. Explora el directorio y pulsa el corazón en los que más te gusten." />
         ) : (
           <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {negocios.map((negocio, i) => (
+            {negocios.map((negocio) => (
               <NegocioCard
                 key={negocio.slug}
                 negocio={negocio}
                 rutaActual="/favoritos"
-                index={i}
               />
             ))}
           </GridStagger>

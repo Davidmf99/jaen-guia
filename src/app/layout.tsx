@@ -5,15 +5,31 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import BarraProgreso from "@/components/layout/BarraProgreso";
 
-// Nota: en un entorno con acceso a internet, sustituye esto por
-// `next/font/google` con Fraunces (título) e Inter (cuerpo), tal y como
-// se referencian en globals.css (--font-display / --font-sans). Aquí se
-// usa system-ui como fallback porque este entorno de build no tiene
-// salida a fonts.googleapis.com.
+import { Fraunces, Inter } from "next/font/google";
+
+// Las dos fuentes que declara globals.css. Estuvieron comentadas porque
+// el entorno de build no tenía salida a fonts.googleapis.com, así que
+// --font-display caía a Georgia y el cuerpo al sans del sistema: la
+// tipografía que se veía no era la diseñada.
 //
-// import { Fraunces, Inter } from "next/font/google";
-// const fraunces = Fraunces({ variable: "--font-display", subsets: ["latin"] });
-// const inter = Inter({ variable: "--font-sans", subsets: ["latin"] });
+// next/font las descarga en build y las sirve desde nuestro propio
+// dominio, así que no hay petición a Google en tiempo de ejecución (ni
+// el parpadeo de texto que trae cargar una fuente de fuera).
+//
+// display: "swap" a propósito: hasta que la fuente esté lista se lee el
+// texto con la de sistema. Para quien entra a mirar si hay algo esta
+// tarde, leer tarde es peor que leer en otra tipografía.
+const fraunces = Fraunces({
+  variable: "--fuente-display",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--fuente-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   // Necesario para que las imágenes de Open Graph declaradas con ruta
@@ -33,7 +49,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className="h-full antialiased">
+    <html
+      lang="es"
+      className={`h-full antialiased ${fraunces.variable} ${inter.variable}`}
+    >
       <body className="min-h-full flex flex-col font-sans">
         {/* Suspense porque BarraProgreso lee los search params: sin él, las
             páginas estáticas pasarían a renderizarse en cliente. */}

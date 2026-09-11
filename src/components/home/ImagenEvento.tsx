@@ -6,7 +6,6 @@ import type { Categoria } from "@/types";
 
 interface Props {
   imagen: string | null;
-  titulo: string;
   fechaInicio: string;
   categoriaTipo: Categoria["tipo"] | null;
   /** La ficha necesita el número de día bastante más grande que la tarjeta. */
@@ -23,7 +22,6 @@ interface Props {
 // pasa.
 export default function ImagenEvento({
   imagen,
-  titulo,
   fechaInicio,
   categoriaTipo,
   tamano = "tarjeta",
@@ -47,7 +45,7 @@ export default function ImagenEvento({
         </span>
         <span
           className={`mt-1.5 font-semibold tracking-[0.2em] text-white/80 ${
-            tamano === "ficha" ? "text-sm" : "text-xs"
+            tamano === "ficha" ? "text-base" : "text-sm"
           }`}
         >
           {mes}
@@ -60,7 +58,11 @@ export default function ImagenEvento({
     /* eslint-disable-next-line @next/next/no-img-element -- URL externa de la agenda o del negocio, sin dominios fijos que declarar en next.config */
     <img
       src={imagen}
-      alt={titulo}
+      /* alt vacío a propósito: el título del evento va justo al lado, y
+         repetirlo hace que un lector de pantalla lo anuncie dos veces. */
+      alt=""
+      loading={tamano === "ficha" ? "eager" : "lazy"}
+      decoding="async"
       onError={() => setFallo(true)}
       className="absolute inset-0 h-full w-full object-cover"
     />

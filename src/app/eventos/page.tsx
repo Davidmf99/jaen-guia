@@ -144,7 +144,7 @@ export default async function EventosPage({ searchParams }: PageProps) {
   };
 
   const claseChip = (activo: boolean) =>
-    `rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+    `inline-flex min-h-11 items-center rounded-full px-4 text-base font-medium transition-colors ${
       activo
         ? "bg-oliva-600 text-white"
         : "border border-oliva-100 text-oliva-700 hover:bg-oliva-100"
@@ -161,7 +161,7 @@ export default async function EventosPage({ searchParams }: PageProps) {
         </header>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm font-medium text-oliva-700">
+          <span className="mr-1 text-base font-medium text-oliva-700">
             Cuándo:
           </span>
           {CORTES.map((c) => (
@@ -176,7 +176,7 @@ export default async function EventosPage({ searchParams }: PageProps) {
         </div>
 
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm font-medium text-oliva-700">
+          <span className="mr-1 text-base font-medium text-oliva-700">
             Categoría:
           </span>
           <Link href={href({ categoria: undefined })} className={claseChip(!categoria)}>
@@ -195,8 +195,8 @@ export default async function EventosPage({ searchParams }: PageProps) {
 
         {eventos.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50 px-6 py-12 text-center">
-            <CalendarDays size={28} aria-hidden="true" className="text-oliva-400" />
-            <p className="font-display text-base text-oliva-700">
+            <CalendarDays size={28} aria-hidden="true" className="text-oliva-500" />
+            <p className="font-display text-lg text-oliva-700">
               {corte === "hoy"
                 ? "Hoy no hay nada programado en Jaén"
                 : corte === "finde"
@@ -208,7 +208,7 @@ export default async function EventosPage({ searchParams }: PageProps) {
             {(categoria || corte) && (
               <Link
                 href="/eventos"
-                className="text-sm font-semibold text-terracota-600 hover:underline"
+                className="text-base font-semibold text-terracota-600 hover:underline"
               >
                 Ver todos los eventos &rsaquo;
               </Link>
@@ -216,8 +216,8 @@ export default async function EventosPage({ searchParams }: PageProps) {
           </div>
         ) : (
           <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {eventos.map((evento, i) => (
-              <EventoCard key={evento.id} evento={evento} index={i} />
+            {eventos.map((evento) => (
+              <EventoCard key={evento.id} evento={evento} />
             ))}
           </GridStagger>
         )}

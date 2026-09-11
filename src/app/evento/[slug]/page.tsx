@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { CalendarDays, ExternalLink, MapPin, Store, Ticket } from "lucide-react";
 import ImagenEvento from "@/components/home/ImagenEvento";
 import { createClient } from "@/lib/supabase/server";
-import { fechaEvento } from "@/lib/eventos";
+import { fechaEvento, fechaEventoAbsoluta } from "@/lib/eventos";
+import ComoLlegar from "@/components/ComoLlegar";
 import type { Categoria } from "@/types";
 
 interface EventoFichaRow {
@@ -61,7 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const evento = await getEvento(slug);
   if (!evento) return {};
 
-  const cuando = fechaEvento(evento.fecha_inicio, evento.es_todo_el_dia);
+  const cuando = fechaEventoAbsoluta(evento.fecha_inicio, evento.es_todo_el_dia);
   const lugar = evento.lugar_nombre ?? evento.negocio?.nombre;
   const descripcion =
     evento.descripcion ?? [cuando, lugar].filter(Boolean).join(" · ");
@@ -102,7 +103,6 @@ export default async function EventoPage({ params }: PageProps) {
         <div className="relative h-64 w-full overflow-hidden md:h-80">
           <ImagenEvento
             imagen={evento.imagen}
-            titulo={evento.titulo}
             fechaInicio={evento.fecha_inicio}
             categoriaTipo={evento.categoria?.tipo ?? null}
             tamano="ficha"
@@ -114,7 +114,7 @@ export default async function EventoPage({ params }: PageProps) {
               {evento.categoria && (
                 <Link
                   href={`/eventos?categoria=${evento.categoria.slug}`}
-                  className="text-xs font-medium uppercase tracking-wide text-tierra-100 hover:text-white"
+                  className="text-sm font-semibold uppercase tracking-wide text-tierra-100 hover:text-white"
                 >
                   {evento.categoria.nombre}
                 </Link>
@@ -130,7 +130,7 @@ export default async function EventoPage({ params }: PageProps) {
           <dl className="space-y-3">
             <div className="flex items-start gap-2">
               <dt className="sr-only">Fecha</dt>
-              <CalendarDays size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-400" />
+              <CalendarDays size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-500" />
               <dd className="text-oliva-900">
                 {cuando}
                 {cuandoFin && <> &ndash; {cuandoFin}</>}
@@ -140,11 +140,11 @@ export default async function EventoPage({ params }: PageProps) {
             {lugar && (
               <div className="flex items-start gap-2">
                 <dt className="sr-only">Lugar</dt>
-                <MapPin size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-400" />
+                <MapPin size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-500" />
                 <dd className="text-oliva-900">
                   {lugar}
                   {evento.direccion && (
-                    <span className="block text-sm text-oliva-700">
+                    <span className="block text-base text-oliva-700">
                       {evento.direccion}
                     </span>
                   )}
@@ -155,10 +155,10 @@ export default async function EventoPage({ params }: PageProps) {
             {(evento.es_gratis || evento.precio_texto) && (
               <div className="flex items-start gap-2">
                 <dt className="sr-only">Precio</dt>
-                <Ticket size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-400" />
+                <Ticket size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-500" />
                 <dd>
                   {evento.es_gratis ? (
-                    <span className="rounded-full bg-terracota-500 px-2 py-1 text-xs font-semibold text-white">
+                    <span className="rounded-full bg-terracota-600 px-3 py-1 text-sm font-semibold text-white">
                       Gratis
                     </span>
                   ) : (
@@ -171,7 +171,7 @@ export default async function EventoPage({ params }: PageProps) {
             {evento.negocio && (
               <div className="flex items-start gap-2">
                 <dt className="sr-only">Organiza</dt>
-                <Store size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-400" />
+                <Store size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-oliva-500" />
                 <dd className="text-oliva-900">
                   Organiza{" "}
                   <Link
@@ -185,6 +185,14 @@ export default async function EventoPage({ params }: PageProps) {
             )}
           </dl>
 
+          {/* Lo que viene después de decidir el plan: llegar. La ficha
+              de evento no tenía mapa ni ninguna dirección accionable. */}
+          {lugar && (
+            <div className="mt-6">
+              <ComoLlegar nombre={lugar} direccion={evento.direccion} />
+            </div>
+          )}
+
           {evento.descripcion && (
             <p className="mt-6 whitespace-pre-line text-oliva-700">
               {evento.descripcion}
@@ -194,8 +202,8 @@ export default async function EventoPage({ params }: PageProps) {
           {/* Enlace a la ficha original de la agenda de la que viene el
               evento: aquí sí es el enlace directo, no la portada. */}
           {evento.fuente_nombre && evento.fuente_url && (
-            <p className="mt-6 flex items-center gap-1.5 text-sm text-oliva-600">
-              <ExternalLink size={15} aria-hidden="true" className="shrink-0 text-oliva-400" />
+            <p className="mt-6 flex items-center gap-1.5 text-base text-oliva-600">
+              <ExternalLink size={15} aria-hidden="true" className="shrink-0 text-oliva-500" />
               <span>
                 Información publicada por{" "}
                 <a
@@ -212,7 +220,7 @@ export default async function EventoPage({ params }: PageProps) {
 
           <Link
             href="/eventos"
-            className="mt-8 inline-block text-sm font-medium text-terracota-600 hover:underline"
+            className="mt-8 inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
           >
             &lsaquo; Todos los eventos
           </Link>

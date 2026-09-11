@@ -26,7 +26,7 @@ export default function EstadoErrorRuta({
         <button
           type="button"
           onClick={() => retry()}
-          className="rounded-full bg-terracota-500 px-4 py-2 text-sm font-semibold text-white hover:bg-terracota-600 transition-colors"
+          className="rounded-full bg-terracota-600 px-4 py-2 text-sm font-semibold text-white hover:bg-terracota-700 transition-colors"
         >
           Reintentar
         </button>

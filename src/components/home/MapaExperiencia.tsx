@@ -37,7 +37,7 @@ export default async function MapaExperiencia() {
         
         <div className="mb-10 max-w-2xl">
           <h2 className="font-sans text-3xl md:text-4xl font-bold tracking-tight text-oliva-900 mb-3">
-            Mapa de la Experiencia
+            Dónde está cada sitio
           </h2>
           <p className="text-lg text-oliva-600">
             Los lugares imprescindibles que no puedes perderte en tu visita a Jaén.
@@ -64,17 +64,17 @@ export default async function MapaExperiencia() {
                   <li key={punto.slug ?? punto.nombre} className="group relative">
                     <Link
                       href={`/negocio/${punto.slug}`}
-                      className="flex items-start gap-4 rounded-2xl p-3 -mx-3 hover:bg-tierra-50 transition-colors"
+                      className="flex min-h-11 items-start gap-4 rounded-2xl p-3 -mx-3 hover:bg-tierra-50 transition-colors"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oliva-100 text-sm font-bold text-oliva-900 group-hover:bg-terracota-500 group-hover:text-white transition-colors">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oliva-100 text-sm font-bold text-oliva-900 group-hover:bg-terracota-600 group-hover:text-white transition-colors">
                         {i + 1}
                       </span>
-                      <div className="flex flex-col pt-1">
-                        <span className="font-semibold text-oliva-900 group-hover:text-terracota-600 transition-colors">
+                      <div className="flex min-w-0 flex-col pt-1">
+                        <span className="font-semibold break-words text-oliva-900 group-hover:text-terracota-600 transition-colors">
                           {punto.nombre}
                         </span>
-                        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-terracota-500 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
-                          Ver detalles <ArrowRight size={12} />
+                        <span className="mt-1 flex items-center gap-1 text-sm font-medium text-terracota-600">
+                          Ver detalles <ArrowRight size={14} aria-hidden="true" />
                         </span>
                       </div>
                     </Link>

@@ -4,8 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 // favoritos, para poder marcar el corazón de cada NegocioCard sin una
 // consulta por tarjeta. Sin sesión, favoritoIds siempre vacío.
 export async function getUsuarioYFavoritos() {
-  console.time("[perf] getUsuarioYFavoritos"); // TEMPORAL: quitar tras medir
-  try {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,7 +20,4 @@ export async function getUsuarioYFavoritos() {
     user,
     favoritoIds: new Set((data ?? []).map((f) => f.negocio_id)),
   };
-  } finally {
-    console.timeEnd("[perf] getUsuarioYFavoritos"); // TEMPORAL
-  }
 }

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { rutaInternaSegura } from "@/lib/rutas";
 
 // Toggle: si la fila ya existe en favoritos, la borra; si no, la crea.
 // Sin sesión, redirige a /login en vez de fallar en silencio o insertar
@@ -13,8 +14,14 @@ export async function toggleFavorito(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = String(formData.get("pathname") ?? "");
+
   if (!user) {
-    redirect("/login");
+    // Con la ruta de vuelta: antes se redirigía a /login a secas y, tras
+    // iniciar sesión, el usuario acababa en la portada en vez de en el
+    // negocio que estaba intentando guardar.
+    const volver = rutaInternaSegura(pathname);
+    redirect(`/login?volver=${encodeURIComponent(volver)}`);
   }
 
   const negocioId = String(formData.get("negocio_id") ?? "");
@@ -39,6 +46,5 @@ export async function toggleFavorito(formData: FormData) {
       .insert({ usuario_id: user.id, negocio_id: negocioId });
   }
 
-  const pathname = String(formData.get("pathname") ?? "");
   if (pathname) revalidatePath(pathname);
 }

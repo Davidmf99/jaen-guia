@@ -83,12 +83,11 @@ export default async function DestacadosPage() {
           <EstadoVacio mensaje="Aún no hay negocios destacados" />
         ) : (
           <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {negociosConFavorito.map((negocio, i) => (
+            {negociosConFavorito.map((negocio) => (
               <NegocioCard
                 key={negocio.slug}
                 negocio={negocio}
                 rutaActual="/destacados"
-                index={i}
               />
             ))}
           </GridStagger>

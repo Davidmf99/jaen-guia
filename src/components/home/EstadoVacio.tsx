@@ -13,8 +13,8 @@ interface Props {
 export default function EstadoVacio({ mensaje, icono: Icono = Sprout }: Props) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50 px-6 py-12 text-center">
-      <Icono size={28} className="text-oliva-400" />
-      <p className="font-display text-base text-oliva-700">{mensaje}</p>
+      <Icono size={28} className="text-oliva-500" />
+      <p className="font-display text-lg text-oliva-700">{mensaje}</p>
     </div>
   );
 }

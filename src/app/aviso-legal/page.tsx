@@ -11,7 +11,7 @@ export default function AvisoLegalPage() {
         <h1 className="font-display text-4xl font-bold text-oliva-900 mb-8">
           Aviso Legal
         </h1>
-        <div className="prose prose-oliva text-oliva-700">
+        <div className="texto-legal text-oliva-700">
           <p>
             En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio, de
             Servicios de la Sociedad de la Información y Comercio Electrónico (LSSICE),

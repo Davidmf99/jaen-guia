@@ -127,9 +127,10 @@ export default async function EventosProximos() {
   ];
 
   return (
-    // El pt-24 compensa el sm:-mb-10 del buscador del hero: los 40px
-    // negativos y el padding se cancelan y el título queda bajo la caja.
-    <AnimatedSection className="pt-24 pb-16">
+    // Pegada al hero a propósito. La agenda es lo que trae al usuario, y
+    // con 96px de separación el primer evento caía a 1,66 pantallas de
+    // scroll en un móvil de 360×640.
+    <AnimatedSection className="pt-2 pb-12">
       <div className="mx-auto max-w-6xl px-6">
         <AgendaCortes grupos={grupos} />
       </div>
