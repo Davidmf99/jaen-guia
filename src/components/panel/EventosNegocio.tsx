@@ -81,7 +81,7 @@ export default function EventosNegocio({ negocio, categorias, eventos }: Props) 
                 )}
               </div>
 
-              <BorrarEvento eventoId={evento.id} titulo={evento.titulo} />
+              <BorrarEvento eventoId={evento.id} titulo={evento.titulo} slugNegocio={negocio.slug} />
             </li>
           ))}
         </ul>

@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import EstadoVacio from "@/components/home/EstadoVacio";
+import { ArrowLeft } from "lucide-react";
 import EventosNegocio, { type EventoPanel } from "@/components/panel/EventosNegocio";
+import CampoPortada from "@/components/panel/CampoPortada";
 import { createClient } from "@/lib/supabase/server";
 import { filtroEventosVigentes } from "@/lib/eventos";
+import { SERVICIOS, RANGOS_PRECIO, parsearLista } from "@/lib/servicios";
+import { DIAS_SEMANA, normalizarHorario } from "@/lib/horario";
 
 export const metadata: Metadata = {
-  title: "Panel de negocio · Jaén Guía",
+  title: "Editar negocio · Jaén Guía",
   description: "Gestiona la ficha pública de tu negocio en Jaén Guía.",
 };
 
@@ -16,17 +20,17 @@ export const metadata: Metadata = {
 // (bucket público "negocios-portadas" + políticas de storage.objects
 // para que solo el dueño pueda subir a su propia carpeta) antes de que
 // la subida de imagen funcione. Ver aviso aparte.
+
 const BUCKET_PORTADAS = "negocios-portadas";
 
-const DIAS = [
-  { clave: "lunes", etiqueta: "Lunes" },
-  { clave: "martes", etiqueta: "Martes" },
-  { clave: "miercoles", etiqueta: "Miércoles" },
-  { clave: "jueves", etiqueta: "Jueves" },
-  { clave: "viernes", etiqueta: "Viernes" },
-  { clave: "sabado", etiqueta: "Sábado" },
-  { clave: "domingo", etiqueta: "Domingo" },
-] as const;
+// Tope de la portada ya en el servidor. Tiene que quedar por debajo del
+// bodySizeLimit de next.config.ts (4 MB) y del límite de 4,5 MB por
+// petición de las funciones de Vercel; CampoPortada reduce la foto en el
+// navegador para no acercarse a esto.
+const PORTADA_MAX_MB = 3.5;
+const PORTADA_MAX_BYTES = PORTADA_MAX_MB * 1024 * 1024;
+
+const DIAS = DIAS_SEMANA;
 
 interface NegocioPanel {
   id: string;
@@ -39,44 +43,59 @@ interface NegocioPanel {
   web: string | null;
   horario: Record<string, string> | null;
   imagen_portada: string | null;
+  rango_precio: string | null;
+  tipo_cocina: string[];
+  especialidades: string[];
+  servicios: string[];
+  email: string | null;
+  instagram: string | null;
+  miembros: { estado: string }[];
 }
 
 interface PageProps {
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ ok?: string; error?: string }>;
 }
 
-export default async function PanelPage({ searchParams }: PageProps) {
+export default async function PanelNegocioPage({ params, searchParams }: PageProps) {
+  const { slug: slugParam } = await params;
   const { ok, error } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) redirect(`/login?volver=${encodeURIComponent(`/panel/${slugParam}`)}`);
 
-  const { data: perfil } = await supabase
-    .from("perfiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single();
-
-  // No es una página de error: si el rol no es 'negocio' simplemente no
-  // es la sección que le corresponde a este usuario.
-  if (perfil?.rol !== "negocio") redirect("/");
-
-  // Relación 1:1 asumida a propósito para esta primera versión: un
-  // perfil con rol 'negocio' gestiona exactamente un negocio
-  // (negocios.propietario_id = auth.uid()). Si en el futuro un mismo
-  // perfil puede tener varios negocios, este panel necesitará un
-  // selector — no contemplado aquí.
+  // Quién puede editar lo decide negocios_miembros (migración 0011), no
+  // perfiles.rol. La membresía se comprueba aquí para dar un 404 en vez
+  // de un formulario que luego no guarda nada; la RLS de negocios
+  // ("Miembro edita su negocio") es la protección real.
   const { data: negocio } = await supabase
     .from("negocios")
     .select(
-      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada"
+      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, miembros:negocios_miembros!inner(estado)"
     )
-    .eq("propietario_id", user.id)
+    .eq("slug", slugParam)
+    .eq("miembros.perfil_id", user.id)
+    .eq("miembros.estado", "aprobado")
     .maybeSingle()
     .returns<NegocioPanel>();
+
+  if (!negocio) notFound();
+
+  // /panel redirige aquí cuando el usuario solo tiene este negocio, así
+  // que el enlace "Mis negocios" sería un bucle: solo se enseña si hay
+  // algo más que listar (otro negocio o una solicitud pendiente).
+  const { count: numMembresias } = await supabase
+    .from("negocios_miembros")
+    .select("negocio_id", { count: "exact", head: true })
+    .eq("perfil_id", user.id);
+  const tieneVariosNegocios = (numMembresias ?? 0) > 1;
+
+  // Claves sin tilde: los horarios importados de Google traen
+  // "miércoles"/"sábado" y el formulario usa "miercoles"/"sabado".
+  const horarioActual = normalizarHorario(negocio.horario);
 
   // Las mismas secciones que usa la navegación del sitio, para que un
   // evento de un bar caiga en "Gastronomía" y no en un catálogo aparte.
@@ -86,16 +105,14 @@ export default async function PanelPage({ searchParams }: PageProps) {
     .order("orden")
     .returns<{ id: string; nombre: string }[]>();
 
-  const { data: eventos } = negocio
-    ? await supabase
-        .from("eventos")
-        .select("id, slug, titulo, fecha_inicio, es_todo_el_dia, lugar_nombre")
-        .eq("negocio_id", negocio.id)
-        .eq("origen", "negocio")
-        .or(filtroEventosVigentes())
-        .order("fecha_inicio", { ascending: true })
-        .returns<EventoPanel[]>()
-    : { data: [] as EventoPanel[] };
+  const { data: eventos } = await supabase
+    .from("eventos")
+    .select("id, slug, titulo, fecha_inicio, es_todo_el_dia, lugar_nombre")
+    .eq("negocio_id", negocio.id)
+    .eq("origen", "negocio")
+    .or(filtroEventosVigentes())
+    .order("fecha_inicio", { ascending: true })
+    .returns<EventoPanel[]>();
 
   async function actualizarNegocio(formData: FormData) {
     "use server";
@@ -122,44 +139,103 @@ export default async function PanelPage({ searchParams }: PageProps) {
       telefono: String(formData.get("telefono") ?? "").trim() || null,
       web: String(formData.get("web") ?? "").trim() || null,
       horario: Object.keys(horario).length > 0 ? horario : null,
+      email: String(formData.get("email") ?? "").trim() || null,
+      // Se acepta "@usuario" o la URL entera y se guarda solo el usuario.
+      instagram:
+        String(formData.get("instagram") ?? "")
+          .trim()
+          .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+          .replace(/^@/, "")
+          .replace(/\/.*$/, "") || null,
+      rango_precio: RANGOS_PRECIO.some((r) => r.valor === formData.get("rango_precio"))
+        ? String(formData.get("rango_precio"))
+        : null,
+      tipo_cocina: parsearLista(formData.get("tipo_cocina")),
+      especialidades: parsearLista(formData.get("especialidades")),
+      servicios: formData
+        .getAll("servicios")
+        .map(String)
+        .filter((clave) => SERVICIOS.some((s) => s.clave === clave)),
     };
+
+    const volver = (tipo: "ok" | "error", mensaje: string): never =>
+      redirect(`/panel/${slug}?${tipo}=${encodeURIComponent(mensaje)}`);
 
     const portada = formData.get("portada");
     if (portada instanceof File && portada.size > 0) {
-      const ruta = `${negocioId}/${Date.now()}-${portada.name}`;
+      // CampoPortada ya la reduce en el navegador; esto es la red de
+      // seguridad por si llega sin JavaScript o el navegador no pudo.
+      if (!portada.type.startsWith("image/")) {
+        volver("error", "El archivo de portada tiene que ser una imagen.");
+      }
+      if (portada.size > PORTADA_MAX_BYTES) {
+        volver(
+          "error",
+          `La foto pesa ${(portada.size / 1024 / 1024).toFixed(1)} MB y el máximo son ${PORTADA_MAX_MB} MB. Prueba con una más pequeña.`
+        );
+      }
+
+      const extension = portada.name.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() ?? ".jpg";
+      const ruta = `${negocioId}/${Date.now()}${extension}`;
+      // Sin upsert: la ruta lleva timestamp y nunca colisiona, y con
+      // `upsert: true` Storage necesita además una policy de SELECT
+      // sobre storage.objects (que no hay: el bucket es público y se lee
+      // por URL) y falla con "new row violates row-level security".
       const { error: errorSubida } = await supabase.storage
         .from(BUCKET_PORTADAS)
-        .upload(ruta, portada, { upsert: true });
+        .upload(ruta, portada, { contentType: portada.type });
 
-      if (!errorSubida) {
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(BUCKET_PORTADAS).getPublicUrl(ruta);
-        cambios.imagen_portada = publicUrl;
+      if (errorSubida) {
+        // Antes se ignoraba en silencio y el dueño no sabía por qué la
+        // foto no cambiaba.
+        volver("error", `No hemos podido subir la foto (${errorSubida.message}). El resto de cambios no se ha guardado.`);
       }
-      // Si la subida falla (p. ej. el bucket todavía no existe), se
-      // ignora en silencio y se guardan igualmente el resto de cambios
-      // del formulario con la portada anterior.
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(BUCKET_PORTADAS).getPublicUrl(ruta);
+      cambios.imagen_portada = publicUrl;
     }
 
-    // La RLS de negocios ("Dueño edita su negocio", propietario_id =
-    // auth.uid(), en 0001_init.sql) es la que realmente protege esto: si
-    // negocioId no fuera del usuario, el update afectaría a 0 filas.
-    await supabase.from("negocios").update(cambios).eq("id", negocioId);
+    // La RLS de negocios ("Miembro edita su negocio", migración 0011) es
+    // la que realmente protege esto: si el usuario no fuera miembro
+    // aprobado, el update afectaría a 0 filas.
+    const { error: errorUpdate } = await supabase
+      .from("negocios")
+      .update(cambios)
+      .eq("id", negocioId);
+
+    if (errorUpdate) volver("error", "No hemos podido guardar los cambios. Inténtalo de nuevo.");
 
     revalidatePath("/panel");
-    if (slug) revalidatePath(`/negocio/${slug}`);
+    if (slug) {
+      revalidatePath(`/panel/${slug}`);
+      revalidatePath(`/negocio/${slug}`);
+    }
+    volver("ok", "Cambios guardados.");
   }
 
   return (
     <>
       <main className="mx-auto max-w-2xl px-6 py-10">
+        {tieneVariosNegocios && (
+          <Link
+            href="/panel"
+            className="mb-6 inline-flex min-h-11 items-center gap-2 text-base font-semibold text-oliva-700 hover:text-terracota-600 transition-colors"
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
+            Mis negocios
+          </Link>
+        )}
         <header className="mb-8">
           <h1 className="font-display text-3xl font-semibold text-oliva-900">
-            Panel de negocio
+            {negocio.nombre}
           </h1>
           <p className="mt-2 text-oliva-700">
-            Edita la ficha pública de tu negocio en Jaén Guía.
+            Edita la ficha pública de tu negocio.{" "}
+            <Link href={`/negocio/${negocio.slug}`} className="font-semibold text-terracota-600 hover:underline">
+              Ver ficha
+            </Link>
           </p>
         </header>
 
@@ -176,146 +252,216 @@ export default async function PanelPage({ searchParams }: PageProps) {
           </p>
         )}
 
-        {!negocio ? (
-          <EstadoVacio mensaje="Tu perfil aún no tiene ningún negocio asociado. Contacta con el equipo de Jaén Guía para vincularlo." />
-        ) : (
-          <form
-            action={actualizarNegocio}
-            className="space-y-5 rounded-2xl bg-white p-6 shadow-sm"
-          >
-            <input type="hidden" name="negocio_id" value={negocio.id} />
-            <input type="hidden" name="slug" value={negocio.slug} />
+        <form
+          action={actualizarNegocio}
+          className="space-y-5 rounded-2xl bg-white p-6 shadow-sm"
+        >
+          <input type="hidden" name="negocio_id" value={negocio.id} />
+          <input type="hidden" name="slug" value={negocio.slug} />
 
+          <div>
+            <label htmlFor="nombre" className="block text-base font-medium text-oliva-700">
+              Nombre
+            </label>
+            <input
+              id="nombre"
+              name="nombre"
+              type="text"
+              defaultValue={negocio.nombre}
+              required
+              className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="descripcion" className="block text-base font-medium text-oliva-700">
+              Descripción
+            </label>
+            <textarea
+              id="descripcion"
+              name="descripcion"
+              rows={4}
+              defaultValue={negocio.descripcion ?? ""}
+              className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="nombre" className="block text-base font-medium text-oliva-700">
-                Nombre
+              <label htmlFor="telefono" className="block text-base font-medium text-oliva-700">
+                Teléfono
               </label>
               <input
-                id="nombre"
-                name="nombre"
+                id="telefono"
+                name="telefono"
+                type="tel"
+                defaultValue={negocio.telefono ?? ""}
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="web" className="block text-base font-medium text-oliva-700">
+                Web
+              </label>
+              <input
+                id="web"
+                name="web"
+                type="url"
+                placeholder="https://"
+                defaultValue={negocio.web ?? ""}
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="email" className="block text-base font-medium text-oliva-700">
+                Email de contacto
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                defaultValue={negocio.email ?? ""}
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="instagram" className="block text-base font-medium text-oliva-700">
+                Instagram
+              </label>
+              <input
+                id="instagram"
+                name="instagram"
                 type="text"
-                defaultValue={negocio.nombre}
-                required
+                placeholder="@tunegocio"
+                defaultValue={negocio.instagram ?? ""}
                 className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               />
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="descripcion" className="block text-base font-medium text-oliva-700">
-                Descripción
+              <label htmlFor="rango_precio" className="block text-base font-medium text-oliva-700">
+                Precio orientativo
               </label>
-              <textarea
-                id="descripcion"
-                name="descripcion"
-                rows={4}
-                defaultValue={negocio.descripcion ?? ""}
-                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="telefono" className="block text-base font-medium text-oliva-700">
-                  Teléfono
-                </label>
-                <input
-                  id="telefono"
-                  name="telefono"
-                  type="tel"
-                  defaultValue={negocio.telefono ?? ""}
-                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
-                />
-              </div>
-              <div>
-                <label htmlFor="web" className="block text-base font-medium text-oliva-700">
-                  Web
-                </label>
-                <input
-                  id="web"
-                  name="web"
-                  type="url"
-                  placeholder="https://"
-                  defaultValue={negocio.web ?? ""}
-                  className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
-                />
-              </div>
-            </div>
-
-            {/* fieldset/legend y no un <p>: es un grupo de campos, y así
-                un lector de pantalla anuncia "Horario" al entrar en él. */}
-            <fieldset>
-              <legend className="text-base font-medium text-oliva-700">
-                Horario
-              </legend>
-              <div className="mt-2 space-y-2">
-                {DIAS.map((dia) => (
-                  <div key={dia.clave} className="flex items-center gap-3">
-                    <label
-                      htmlFor={`horario_${dia.clave}`}
-                      className="w-24 shrink-0 text-base text-oliva-700"
-                    >
-                      {dia.etiqueta}
-                    </label>
-                    <input
-                      id={`horario_${dia.clave}`}
-                      name={`horario_${dia.clave}`}
-                      type="text"
-                      placeholder="9:00-14:00, 17:00-21:00 (vacío = cerrado)"
-                      defaultValue={negocio.horario?.[dia.clave] ?? ""}
-                      className="flex-1 rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
-                    />
-                  </div>
-                ))}
-              </div>
-            </fieldset>
-
-            <div>
-              {/* label y no <p>: era el único campo del proyecto sin
-                  etiqueta asociada, y un lector de pantalla anunciaba
-                  solo "botón Seleccionar archivo", sin decir de qué. */}
-              <label
-                htmlFor="portada"
-                className="block text-base font-medium text-oliva-700"
+              <select
+                id="rango_precio"
+                name="rango_precio"
+                defaultValue={negocio.rango_precio ?? ""}
+                className="mt-1 w-full rounded-xl border border-oliva-100 bg-white px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               >
-                Foto de portada
+                <option value="">Sin indicar</option>
+                {RANGOS_PRECIO.map((r) => (
+                  <option key={r.valor} value={r.valor}>
+                    {r.valor} · {r.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="tipo_cocina" className="block text-base font-medium text-oliva-700">
+                Tipo de cocina o de negocio
               </label>
-              {negocio.imagen_portada && (
-                /* eslint-disable-next-line @next/next/no-img-element -- URL de Supabase Storage, sin dominio fijo que declarar en next.config */
-                <img
-                  src={negocio.imagen_portada}
-                  alt="Foto de portada actual de tu negocio"
-                  className="mt-2 h-32 w-full rounded-xl object-cover"
-                />
-              )}
               <input
-                id="portada"
-                type="file"
-                name="portada"
-                accept="image/*"
-                aria-describedby="portada-ayuda"
-                className="mt-2 block w-full text-base text-oliva-700 file:mr-3 file:rounded-full file:border-0 file:bg-oliva-100 file:px-4 file:py-2.5 file:text-base file:font-medium file:text-oliva-700 hover:file:bg-oliva-600 hover:file:text-white"
+                id="tipo_cocina"
+                name="tipo_cocina"
+                type="text"
+                placeholder="Tapas, Cocina jiennense, Asador"
+                defaultValue={negocio.tipo_cocina.join(", ")}
+                aria-describedby="tipo_cocina-ayuda"
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               />
-              <p id="portada-ayuda" className="mt-1 text-sm text-oliva-600">
-                Deja este campo vacío para mantener la foto actual.
+              <p id="tipo_cocina-ayuda" className="mt-1 text-sm text-oliva-600">
+                Separa cada etiqueta con una coma.
               </p>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
-            >
-              Guardar cambios
-            </button>
-          </form>
-        )}
+          <div>
+            <label htmlFor="especialidades" className="block text-base font-medium text-oliva-700">
+              Especialidades o productos estrella
+            </label>
+            <textarea
+              id="especialidades"
+              name="especialidades"
+              rows={3}
+              placeholder={"Ochíos con morcilla\nAndrajos\nPipirrana"}
+              defaultValue={negocio.especialidades.join("\n")}
+              aria-describedby="especialidades-ayuda"
+              className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+            />
+            <p id="especialidades-ayuda" className="mt-1 text-sm text-oliva-600">
+              Uno por línea. Aparecen en la ficha como «No te vayas sin probar».
+            </p>
+          </div>
 
-        {negocio && (
-          <EventosNegocio
-            negocio={negocio}
-            categorias={categorias ?? []}
-            eventos={eventos ?? []}
-          />
-        )}
+          <fieldset>
+            <legend className="text-base font-medium text-oliva-700">Servicios</legend>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {SERVICIOS.map(({ clave, etiqueta }) => (
+                <label
+                  key={clave}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-oliva-100 px-3 text-base text-oliva-900 has-[:checked]:border-oliva-400 has-[:checked]:bg-tierra-50"
+                >
+                  <input
+                    type="checkbox"
+                    name="servicios"
+                    value={clave}
+                    defaultChecked={negocio.servicios.includes(clave)}
+                    className="h-4 w-4 accent-terracota-600"
+                  />
+                  {etiqueta}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* fieldset/legend y no un <p>: es un grupo de campos, y así
+              un lector de pantalla anuncia "Horario" al entrar en él. */}
+          <fieldset>
+            <legend className="text-base font-medium text-oliva-700">
+              Horario
+            </legend>
+            <div className="mt-2 space-y-2">
+              {DIAS.map((dia) => (
+                <div key={dia.clave} className="flex items-center gap-3">
+                  <label
+                    htmlFor={`horario_${dia.clave}`}
+                    className="w-24 shrink-0 text-base text-oliva-700"
+                  >
+                    {dia.etiqueta}
+                  </label>
+                  <input
+                    id={`horario_${dia.clave}`}
+                    name={`horario_${dia.clave}`}
+                    type="text"
+                    placeholder="9:00-14:00, 17:00-21:00 (vacío = cerrado)"
+                    defaultValue={horarioActual[dia.clave] ?? ""}
+                    className="flex-1 rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+                  />
+                </div>
+              ))}
+            </div>
+          </fieldset>
+
+          <CampoPortada imagenActual={negocio.imagen_portada} />
+
+          <button
+            type="submit"
+            className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
+          >
+            Guardar cambios
+          </button>
+        </form>
+
+        <EventosNegocio
+          negocio={negocio}
+          categorias={categorias ?? []}
+          eventos={eventos ?? []}
+        />
       </main>
     </>
   );

@@ -1,0 +1,99 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+/**
+ * Un usuario logueado pide gestionar un negocio existente ("¿Es tu
+ * negocio?" en la ficha). Crea la membresía en estado pendiente; la
+ * RLS ("Usuario solicita gestionar un negocio", 0011) solo deja
+ * insertar pendiente y para uno mismo, y la PK impide pedirlo dos veces.
+ */
+export async function solicitarGestionNegocio(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const slug = String(formData.get("slug") ?? "");
+  const rutaFicha = `/negocio/${slug}`;
+
+  if (!user) {
+    redirect(`/login?volver=${encodeURIComponent(`${rutaFicha}#gestionar`)}`);
+  }
+
+  const negocioId = String(formData.get("negocio_id") ?? "");
+  const mensaje = String(formData.get("mensaje") ?? "").trim().slice(0, 500) || null;
+  const telefono = String(formData.get("telefono_contacto") ?? "").trim().slice(0, 30) || null;
+
+  if (!negocioId || !slug) return;
+
+  const { error } = await supabase.from("negocios_miembros").insert({
+    negocio_id: negocioId,
+    perfil_id: user.id,
+    rol: "dueno",
+    estado: "pendiente",
+    mensaje,
+    telefono_contacto: telefono,
+  });
+
+  if (error) {
+    // 23505: ya había una solicitud (pendiente, aprobada o rechazada).
+    const texto =
+      error.code === "23505"
+        ? "Ya habías pedido gestionar este negocio."
+        : "No hemos podido enviar la solicitud. Inténtalo de nuevo.";
+    redirect(`${rutaFicha}?solicitud=${encodeURIComponent(texto)}#gestionar`);
+  }
+
+  revalidatePath(rutaFicha);
+  revalidatePath("/panel");
+  redirect(`${rutaFicha}?solicitud=ok#gestionar`);
+}
+
+/**
+ * El admin aprueba o rechaza una solicitud desde /admin/solicitudes.
+ * La RLS ("Admin gestiona membresias") es la que manda; aquí solo se
+ * valida la forma. Al aprobar, un negocio dado de alta desde el panel
+ * (activo = false) pasa a publicarse.
+ */
+export async function resolverSolicitudNegocio(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?volver=%2Fadmin%2Fsolicitudes");
+
+  const negocioId = String(formData.get("negocio_id") ?? "");
+  const perfilId = String(formData.get("perfil_id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const slug = String(formData.get("slug") ?? "");
+
+  if (!negocioId || !perfilId) return;
+  if (decision !== "aprobar" && decision !== "rechazar") return;
+
+  const estado = decision === "aprobar" ? "aprobado" : "rechazado";
+
+  const { error } = await supabase
+    .from("negocios_miembros")
+    .update({ estado, resuelto_en: new Date().toISOString(), resuelto_por: user.id })
+    .eq("negocio_id", negocioId)
+    .eq("perfil_id", perfilId);
+
+  if (error) {
+    redirect(`/admin/solicitudes?error=${encodeURIComponent("No se ha podido guardar la decisión.")}`);
+  }
+
+  if (estado === "aprobado") {
+    await supabase.from("negocios").update({ activo: true }).eq("id", negocioId).eq("activo", false);
+  }
+
+  revalidatePath("/admin/solicitudes");
+  revalidatePath("/panel");
+  if (slug) {
+    revalidatePath(`/negocio/${slug}`);
+    revalidatePath(`/panel/${slug}`);
+  }
+  redirect(`/admin/solicitudes?ok=${encodeURIComponent(estado === "aprobado" ? "Solicitud aprobada." : "Solicitud rechazada.")}`);
+}

@@ -7,6 +7,8 @@ import { borrarEventoNegocio } from "@/lib/actions/eventos";
 interface Props {
   eventoId: string;
   titulo: string;
+  /** Para volver a /panel/[slug] tras borrar. */
+  slugNegocio: string;
 }
 
 // Borrado en dos pasos. Antes era una papelera de 16 px dentro de un
@@ -21,7 +23,7 @@ interface Props {
 // Sin JavaScript el componente no llega a hidratarse y el botón hace lo
 // que hacía antes: enviar el formulario y borrar. Se pierde el paso de
 // confirmación, no la función.
-export default function BorrarEvento({ eventoId, titulo }: Props) {
+export default function BorrarEvento({ eventoId, titulo, slugNegocio }: Props) {
   const [confirmando, setConfirmando] = useState(false);
   const cancelarRef = useRef<HTMLButtonElement>(null);
   const abrirRef = useRef<HTMLButtonElement>(null);
@@ -55,6 +57,7 @@ export default function BorrarEvento({ eventoId, titulo }: Props) {
       </span>
       <form action={borrarEventoNegocio}>
         <input type="hidden" name="evento_id" value={eventoId} />
+        <input type="hidden" name="slug_negocio" value={slugNegocio} />
         <button
           type="submit"
           className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-4 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"

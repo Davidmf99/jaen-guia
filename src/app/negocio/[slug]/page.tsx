@@ -3,7 +3,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { MapPin, Phone, Globe, Clock, Star } from "lucide-react";
+import { MapPin, Phone, Globe, Clock, Star, Mail, AtSign, Euro, Tag } from "lucide-react";
 import MapaUbicacion from "@/components/negocio/MapaUbicacion";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPuntuacionMedia } from "@/lib/resenas";
@@ -12,6 +12,21 @@ import BotonFavorito from "@/components/BotonFavorito";
 import ImagenNegocio from "@/components/ImagenNegocio";
 import SelectorEstrellas from "@/components/negocio/SelectorEstrellas";
 import ComoLlegar from "@/components/ComoLlegar";
+import BotonSubmitResena from "@/components/negocio/BotonSubmitResena";
+import OverlayFormulario from "@/components/negocio/OverlayFormulario";
+import GestionarNegocio from "@/components/negocio/GestionarNegocio";
+import { gradientePara } from "@/lib/gradiente";
+import { SERVICIOS, etiquetaRangoPrecio } from "@/lib/servicios";
+import { horarioOrdenado } from "@/lib/horario";
+
+function iniciales(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .filter((p) => p.length > 2)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 interface ResenaRow {
   id: string;
@@ -20,6 +35,11 @@ interface ResenaRow {
   es_oficial: boolean;
   created_at: string;
   usuario_id: string;
+  perfil?: {
+    nombre: string | null;
+    apellidos: string | null;
+    username: string | null;
+  } | null;
 }
 
 interface NegocioFichaRow {
@@ -38,6 +58,12 @@ interface NegocioFichaRow {
   imagen_portada: string | null;
   google_photo_name: string | null;
   google_photo_atribucion: string | null;
+  rango_precio: string | null;
+  tipo_cocina: string[];
+  especialidades: string[];
+  servicios: string[];
+  email: string | null;
+  instagram: string | null;
   categoria: { nombre: string } | null;
   resenas: ResenaRow[];
 }
@@ -49,7 +75,7 @@ const getNegocio = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("negocios")
     .select(
-      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias(nombre), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id)"
+      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, categoria:categorias(nombre), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
     )
     .eq("slug", slug)
     .single()
@@ -61,6 +87,7 @@ const getNegocio = cache(async (slug: string) => {
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ solicitud?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -74,8 +101,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function NegocioPage({ params }: PageProps) {
+export default async function NegocioPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { solicitud } = await searchParams;
   const negocio = await getNegocio(slug);
   if (!negocio) notFound();
   const negocioId = negocio.id;
@@ -88,6 +116,13 @@ export default async function NegocioPage({ params }: PageProps) {
   );
   const resenasOficiales = resenasOrdenadas.filter((r) => r.es_oficial);
   const resenasUsuarios = resenasOrdenadas.filter((r) => !r.es_oficial);
+
+  const miResena = user ? resenasUsuarios.find((r) => r.usuario_id === user.id) : null;
+
+  const servicios = SERVICIOS.filter((s) => negocio.servicios.includes(s.clave));
+  const etiquetaPrecio = etiquetaRangoPrecio(negocio.rango_precio);
+  const tieneDetalles = Boolean(etiquetaPrecio) || negocio.tipo_cocina.length > 0;
+  const horario = horarioOrdenado(negocio.horario);
 
   async function crearResena(formData: FormData) {
     "use server";
@@ -103,15 +138,27 @@ export default async function NegocioPage({ params }: PageProps) {
 
     const texto = String(formData.get("texto") ?? "").trim() || null;
 
-    await supabase.from("resenas").insert({
+    await supabase.from("resenas").upsert({
       negocio_id: negocioId,
       usuario_id: user.id,
       puntuacion,
       texto,
       es_oficial: false,
-    });
+    }, { onConflict: "negocio_id,usuario_id" });
 
     revalidatePath(`/negocio/${slug}`);
+    revalidatePath("/mis-resenas");
+  }
+
+  async function eliminarResena() {
+    "use server";
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    await supabase.from("resenas").delete().match({ negocio_id: negocioId, usuario_id: user.id });
+    revalidatePath(`/negocio/${slug}`);
+    revalidatePath("/mis-resenas");
   }
 
 
@@ -186,6 +233,67 @@ export default async function NegocioPage({ params }: PageProps) {
                 </section>
               )}
 
+              {(tieneDetalles || servicios.length > 0) && (
+                <section>
+                  <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
+                    Lo que encontrarás
+                  </h2>
+
+                  {tieneDetalles && (
+                    <div className="mb-8 flex flex-wrap items-center gap-2">
+                      {etiquetaPrecio && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-oliva-900 px-3.5 py-1.5 text-sm font-bold text-white">
+                          <Euro size={14} aria-hidden="true" />
+                          {negocio.rango_precio}
+                          <span className="font-medium text-white/70">· {etiquetaPrecio}</span>
+                        </span>
+                      )}
+                      {negocio.tipo_cocina.map((tipo) => (
+                        <span
+                          key={tipo}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-oliva-100 bg-white px-3.5 py-1.5 text-sm font-semibold text-oliva-900"
+                        >
+                          <Tag size={14} aria-hidden="true" className="text-terracota-500" />
+                          {tipo}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {negocio.especialidades.length > 0 && (
+                    <div className="mb-8">
+                      <p className="mb-3 font-bold text-oliva-900">No te vayas sin probar</p>
+                      <ul className="flex flex-wrap gap-2">
+                        {negocio.especialidades.map((plato) => (
+                          <li
+                            key={plato}
+                            className="rounded-2xl bg-tierra-100 px-4 py-2 text-base font-medium text-terracota-700"
+                          >
+                            {plato}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {servicios.length > 0 && (
+                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {servicios.map(({ clave, etiqueta, icono: Icono }) => (
+                        <li
+                          key={clave}
+                          className="flex items-center gap-3 rounded-2xl border border-oliva-100 bg-white px-4 py-3 text-oliva-900"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                            <Icono size={18} strokeWidth={1.5} aria-hidden="true" />
+                          </span>
+                          <span className="font-medium">{etiqueta}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
               <section>
                 <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6">
                   Ubicación
@@ -218,7 +326,7 @@ export default async function NegocioPage({ params }: PageProps) {
                 </div>
               </section>
 
-              <section>
+              <section id="resenas" className="scroll-mt-24">
                 <h2 className="font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600 mb-6 flex items-center gap-2">
                   Reseñas
                   {negocio.resenas.length > 0 && <span className="flex items-center justify-center h-6 w-6 rounded-full bg-oliva-100 text-sm font-bold text-oliva-900">{negocio.resenas.length}</span>}
@@ -241,7 +349,12 @@ export default async function NegocioPage({ params }: PageProps) {
                 {resenasUsuarios.length > 0 && (
                   <div className="mt-6 space-y-4">
                     {resenasUsuarios.map((resena) => (
-                      <TarjetaResena key={resena.id} resena={resena} />
+                      <TarjetaResena
+                        key={resena.id}
+                        resena={resena}
+                        esMia={resena.usuario_id === user?.id}
+                        eliminar={eliminarResena}
+                      />
                     ))}
                   </div>
                 )}
@@ -249,36 +362,46 @@ export default async function NegocioPage({ params }: PageProps) {
                 <div className="mt-10">
                   {user ? (
                     <form
+                      id="editar-resena"
                       action={crearResena}
-                      className="rounded-[2rem] bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100"
+                      className="relative scroll-mt-24 rounded-[2rem] bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-oliva-100"
                     >
-                      <h3 className="text-xl font-bold text-oliva-900 mb-6">
-                        Deja tu reseña
-                      </h3>
-                      <SelectorEstrellas />
+                      <OverlayFormulario>
+                        <div className="mb-6 flex items-start justify-between gap-4">
+                          <h3 className="text-xl font-bold text-oliva-900">
+                            {miResena ? "Edita tu reseña" : "Deja tu reseña"}
+                          </h3>
+                          {miResena && (
+                            <button
+                              type="submit"
+                              formAction={eliminarResena}
+                              className="text-sm font-semibold text-terracota-500 hover:text-terracota-700 hover:underline"
+                            >
+                              Eliminar
+                            </button>
+                          )}
+                        </div>
+                        <SelectorEstrellas inicial={miResena?.puntuacion ?? 5} />
 
-                      <label
-                        htmlFor="texto"
-                        className="mb-2 block text-base font-semibold text-oliva-900"
-                      >
-                        Tu comentario{" "}
-                        <span className="font-normal text-oliva-600">
-                          (opcional)
-                        </span>
-                      </label>
-                      <textarea
-                        id="texto"
-                        name="texto"
-                        rows={4}
-                        placeholder="Cuéntanos tu experiencia"
-                        className="mb-6 w-full rounded-2xl border border-oliva-100 bg-tierra-50 p-4 text-base outline-none focus:border-terracota-400 focus:bg-white transition-all resize-none"
-                      />
-                      <button
-                        type="submit"
-                        className="rounded-full bg-oliva-900 px-8 py-3.5 font-bold text-white hover:bg-terracota-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        Publicar reseña
-                      </button>
+                        <label
+                          htmlFor="texto"
+                          className="mb-2 block text-base font-semibold text-oliva-900"
+                        >
+                          Tu comentario{" "}
+                          <span className="font-normal text-oliva-600">
+                            (opcional)
+                          </span>
+                        </label>
+                        <textarea
+                          id="texto"
+                          name="texto"
+                          rows={4}
+                          defaultValue={miResena?.texto ?? ""}
+                          placeholder="Cuéntanos tu experiencia"
+                          className="mb-6 w-full rounded-2xl border border-oliva-100 bg-tierra-50 p-4 text-base outline-none focus:border-terracota-400 focus:bg-white transition-all resize-none"
+                        />
+                        <BotonSubmitResena texto={miResena ? "Guardar cambios" : "Publicar reseña"} />
+                      </OverlayFormulario>
                     </form>
                   ) : (
                     <div className="rounded-[2rem] border-2 border-dashed border-oliva-100 bg-white p-8 text-center">
@@ -348,16 +471,43 @@ export default async function NegocioPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {negocio.horario && Object.keys(negocio.horario).length > 0 && (
+                {negocio.email && (
+                  <div className="flex items-center gap-4 text-oliva-700">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                      <Mail size={20} strokeWidth={1.5} />
+                    </div>
+                    <a href={`mailto:${negocio.email}`} className="truncate font-medium hover:text-terracota-600 transition-colors">
+                      {negocio.email}
+                    </a>
+                  </div>
+                )}
+
+                {negocio.instagram && (
+                  <div className="flex items-center gap-4 text-oliva-700">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tierra-50 text-oliva-600">
+                      <AtSign size={20} strokeWidth={1.5} />
+                    </div>
+                    <a
+                      href={`https://instagram.com/${negocio.instagram}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate font-medium hover:text-terracota-600 transition-colors"
+                    >
+                      @{negocio.instagram}
+                    </a>
+                  </div>
+                )}
+
+                {horario.length > 0 && (
                   <div className="pt-6 border-t border-oliva-100/50 mt-6">
                     <p className="flex items-center gap-3 font-bold text-oliva-900 mb-4">
                       <Clock size={20} strokeWidth={1.5} className="text-terracota-500" />
                       Horario de apertura
                     </p>
                     <ul className="space-y-3 text-base font-medium text-oliva-700">
-                      {Object.entries(negocio.horario).map(([dia, horas]) => (
-                        <li key={dia} className="flex justify-between gap-4">
-                          <span className="capitalize opacity-80">{dia}</span>
+                      {horario.map(({ clave, etiqueta, horas }) => (
+                        <li key={clave} className="flex justify-between gap-4">
+                          <span className="opacity-80">{etiqueta}</span>
                           <span className="text-oliva-900">{horas}</span>
                         </li>
                       ))}
@@ -368,47 +518,100 @@ export default async function NegocioPage({ params }: PageProps) {
             </aside>
 
           </div>
+
+          <div className="mt-16">
+            <GestionarNegocio
+              negocioId={negocioId}
+              slug={slug}
+              nombre={negocio.nombre}
+              usuarioId={user?.id ?? null}
+              aviso={solicitud}
+            />
+          </div>
         </div>
       </main>
     </>
   );
 }
 
-function TarjetaResena({ resena }: { resena: ResenaRow }) {
+function TarjetaResena({
+  resena,
+  esMia = false,
+  eliminar,
+}: {
+  resena: ResenaRow;
+  /** Si es del usuario logueado, la tarjeta lleva Editar / Eliminar. */
+  esMia?: boolean;
+  eliminar?: () => Promise<void>;
+}) {
+  const nombreCompleto = [resena.perfil?.nombre, resena.perfil?.apellidos].filter(Boolean).join(" ");
+  const nombreMostrar = nombreCompleto || resena.perfil?.username || "Anónimo";
+  const inicialesAvatar = iniciales(nombreMostrar);
+  const gradiente = gradientePara(nombreMostrar);
+
   return (
     <div className="rounded-2xl border border-oliva-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div
-          className="flex items-center gap-1"
-          aria-label={`${resena.puntuacion} de 5 estrellas`}
-        >
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star
-              key={i}
-              size={16}
-              aria-hidden="true"
-              className={
-                i < resena.puntuacion
-                  ? "fill-terracota-500 text-terracota-500"
-                  : "text-oliva-100"
-              }
-            />
-          ))}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${gradiente} shadow-inner`}>
+            <span className="font-display text-sm font-bold text-white/90">
+              {inicialesAvatar}
+            </span>
+          </div>
+          <div>
+            <p className="font-bold text-oliva-900">{nombreMostrar}</p>
+            {resena.perfil?.username && (
+              <p className="text-xs font-medium text-terracota-600">@{resena.perfil.username}</p>
+            )}
+          </div>
         </div>
-        {resena.es_oficial && (
-          <span className="rounded-full bg-oliva-900 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
-            Nota editorial
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-1">
+          <div
+            className="flex items-center gap-1"
+            aria-label={`${resena.puntuacion} de 5 estrellas`}
+          >
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                size={14}
+                aria-hidden="true"
+                className={
+                  i < resena.puntuacion
+                    ? "fill-terracota-500 text-terracota-500"
+                    : "text-oliva-100"
+                }
+              />
+            ))}
+          </div>
+          {resena.es_oficial && (
+            <span className="rounded-full bg-oliva-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              Nota editorial
+            </span>
+          )}
+        </div>
       </div>
       {resena.texto && <p className="text-base font-medium leading-relaxed text-oliva-900 mb-3">{resena.texto}</p>}
-      <p className="text-sm font-semibold text-oliva-600 uppercase tracking-wide">
-        {new Date(resena.created_at).toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-oliva-600 uppercase tracking-wide">
+          {new Date(resena.created_at).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+        {esMia && eliminar && (
+          <div className="flex items-center gap-4 text-sm font-semibold">
+            <a href="#editar-resena" className="text-oliva-900 hover:text-terracota-600 hover:underline">
+              Editar
+            </a>
+            <form action={eliminar}>
+              <button type="submit" className="text-terracota-500 hover:text-terracota-700 hover:underline">
+                Eliminar
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

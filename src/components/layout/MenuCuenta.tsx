@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Heart, LogOut } from "lucide-react";
+import { ChevronDown, Heart, LogOut, ShieldCheck, Store, User } from "lucide-react";
 
 interface Props {
   nombre: string;
+  /** Si gestiona (o ha pedido gestionar) algún negocio: enseña "Mis negocios". */
+  tieneNegocios?: boolean;
+  /** perfiles.rol = 'admin': enseña la bandeja de solicitudes. */
+  esAdmin?: boolean;
   /** Server Action de cierre de sesión, pasada desde el Header. */
   cerrarSesion: () => Promise<void>;
 }
@@ -19,7 +23,7 @@ interface Props {
 //
 // Mismo patrón que MenuMovil, que ya estaba bien resuelto: aria-expanded,
 // cierre al pulsar fuera, cierre con Escape devolviendo el foco.
-export default function MenuCuenta({ nombre, cerrarSesion }: Props) {
+export default function MenuCuenta({ nombre, tieneNegocios = false, esAdmin = false, cerrarSesion }: Props) {
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
@@ -77,6 +81,14 @@ export default function MenuCuenta({ nombre, cerrarSesion }: Props) {
         }`}
       >
         <Link
+          href="/perfil"
+          onClick={() => setAbierto(false)}
+          className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
+        >
+          <User size={18} aria-hidden="true" className="shrink-0" />
+          Mi perfil
+        </Link>
+        <Link
           href="/favoritos"
           onClick={() => setAbierto(false)}
           className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
@@ -84,6 +96,26 @@ export default function MenuCuenta({ nombre, cerrarSesion }: Props) {
           <Heart size={18} aria-hidden="true" className="shrink-0" />
           Mis favoritos
         </Link>
+        {tieneNegocios && (
+          <Link
+            href="/panel"
+            onClick={() => setAbierto(false)}
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
+          >
+            <Store size={18} aria-hidden="true" className="shrink-0" />
+            Mis negocios
+          </Link>
+        )}
+        {esAdmin && (
+          <Link
+            href="/admin/solicitudes"
+            onClick={() => setAbierto(false)}
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
+          >
+            <ShieldCheck size={18} aria-hidden="true" className="shrink-0" />
+            Solicitudes
+          </Link>
+        )}
         <form action={cerrarSesion}>
           <button
             type="submit"

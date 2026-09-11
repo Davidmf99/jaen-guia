@@ -10,8 +10,15 @@ import { isoDesdeHoraJaen, isoDiaCompletoJaen } from "@/lib/eventos";
 // título normalizado), que es la que puede saltar aquí.
 const UNIQUE_VIOLATION = "23505";
 
-function volverAlPanel(mensaje: string, tipo: "error" | "ok" = "error"): never {
-  redirect(`/panel?${tipo}=${encodeURIComponent(mensaje)}#eventos`);
+// El panel es por negocio (/panel/[slug]) desde la migración 0011; sin
+// slug se cae a la lista de negocios.
+function volverAlPanel(
+  mensaje: string,
+  tipo: "error" | "ok" = "error",
+  slugNegocio = ""
+): never {
+  const base = slugNegocio ? `/panel/${slugNegocio}` : "/panel";
+  redirect(`${base}?${tipo}=${encodeURIComponent(mensaje)}#eventos`);
 }
 
 /**
@@ -29,29 +36,30 @@ export async function crearEventoNegocio(formData: FormData) {
   if (!user) redirect("/login");
 
   const negocioId = String(formData.get("negocio_id") ?? "");
+  const slugNegocio = String(formData.get("slug_negocio") ?? "");
   const titulo = String(formData.get("titulo") ?? "").trim();
   const esTodoElDia = formData.get("es_todo_el_dia") === "on";
   const inicioBruto = String(formData.get("fecha_inicio") ?? "");
   const finBruto = String(formData.get("fecha_fin") ?? "").trim();
 
-  if (!negocioId) volverAlPanel("No hemos encontrado tu negocio.");
-  if (titulo.length < 3) volverAlPanel("El título es demasiado corto.");
-  if (titulo.length > 120) volverAlPanel("El título no puede pasar de 120 caracteres.");
+  if (!negocioId) volverAlPanel("No hemos encontrado tu negocio.", "error", slugNegocio);
+  if (titulo.length < 3) volverAlPanel("El título es demasiado corto.", "error", slugNegocio);
+  if (titulo.length > 120) volverAlPanel("El título no puede pasar de 120 caracteres.", "error", slugNegocio);
 
   // Un evento de todo el día se pide con <input type="date"> y empieza a
   // medianoche; el resto viene de un datetime-local.
   const fechaInicio = esTodoElDia
     ? isoDiaCompletoJaen(inicioBruto)
     : isoDesdeHoraJaen(inicioBruto);
-  if (!fechaInicio) volverAlPanel("Falta la fecha del evento o no es válida.");
+  if (!fechaInicio) volverAlPanel("Falta la fecha del evento o no es válida.", "error", slugNegocio);
 
   let fechaFin: string | null = null;
   if (finBruto) {
     fechaFin = esTodoElDia ? isoDiaCompletoJaen(finBruto) : isoDesdeHoraJaen(finBruto);
-    if (!fechaFin) volverAlPanel("La fecha de fin no es válida.");
+    if (!fechaFin) volverAlPanel("La fecha de fin no es válida.", "error", slugNegocio);
     // El CHECK eventos_fechas_coherentes lo rechazaría igual, pero con un
     // error de base de datos en vez de una frase entendible.
-    if (fechaFin < fechaInicio) volverAlPanel("El evento no puede acabar antes de empezar.");
+    if (fechaFin < fechaInicio) volverAlPanel("El evento no puede acabar antes de empezar.", "error", slugNegocio);
   }
 
   const esGratis = formData.get("es_gratis") === "on";
@@ -80,20 +88,22 @@ export async function crearEventoNegocio(formData: FormData) {
 
   if (error) {
     if (error.code === UNIQUE_VIOLATION) {
-      volverAlPanel("Ya hay un evento con ese título ese mismo día.");
+      volverAlPanel("Ya hay un evento con ese título ese mismo día.", "error", slugNegocio);
     }
     // Un 42501 (RLS) aquí significa que el negocio no es del usuario.
-    volverAlPanel("No hemos podido publicar el evento. Revisa los datos.");
+    volverAlPanel("No hemos podido publicar el evento. Revisa los datos.", "error", slugNegocio);
   }
 
   revalidatePath("/panel");
   revalidatePath("/");
   revalidatePath("/eventos");
 
-  const slugNegocio = String(formData.get("slug_negocio") ?? "");
-  if (slugNegocio) revalidatePath(`/negocio/${slugNegocio}`);
+  if (slugNegocio) {
+    revalidatePath(`/panel/${slugNegocio}`);
+    revalidatePath(`/negocio/${slugNegocio}`);
+  }
 
-  volverAlPanel("Evento publicado.", "ok");
+  volverAlPanel("Evento publicado.", "ok", slugNegocio);
 }
 
 /** Borra un evento propio. La policy de DELETE solo deja los del dueño. */
@@ -105,7 +115,8 @@ export async function borrarEventoNegocio(formData: FormData) {
   if (!user) redirect("/login");
 
   const eventoId = String(formData.get("evento_id") ?? "");
-  if (!eventoId) volverAlPanel("Evento no encontrado.");
+  const slugNegocio = String(formData.get("slug_negocio") ?? "");
+  if (!eventoId) volverAlPanel("Evento no encontrado.", "error", slugNegocio);
 
   // origen = 'negocio' además de la RLS: un evento de agenda oficial
   // asociado a un negocio no debe poder borrarse desde aquí.
@@ -115,11 +126,15 @@ export async function borrarEventoNegocio(formData: FormData) {
     .eq("id", eventoId)
     .eq("origen", "negocio");
 
-  if (error) volverAlPanel("No hemos podido borrar el evento.");
+  if (error) volverAlPanel("No hemos podido borrar el evento.", "error", slugNegocio);
 
   revalidatePath("/panel");
   revalidatePath("/");
   revalidatePath("/eventos");
+  if (slugNegocio) {
+    revalidatePath(`/panel/${slugNegocio}`);
+    revalidatePath(`/negocio/${slugNegocio}`);
+  }
 
-  volverAlPanel("Evento borrado.", "ok");
+  volverAlPanel("Evento borrado.", "ok", slugNegocio);
 }

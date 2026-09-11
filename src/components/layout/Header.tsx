@@ -22,13 +22,21 @@ export default async function Header() {
   ];
 
   let nombreMostrado: string | null = null;
+  let tieneNegocios = false;
+  let esAdmin = false;
   if (user) {
-    const { data: perfil } = await supabase
-      .from("perfiles")
-      .select("nombre")
-      .eq("id", user.id)
-      .single();
+    const [{ data: perfil }, { count }] = await Promise.all([
+      supabase.from("perfiles").select("nombre, rol").eq("id", user.id).single(),
+      // Cualquier membresía (también pendiente): así quien acaba de
+      // reclamar su negocio encuentra dónde ver el estado.
+      supabase
+        .from("negocios_miembros")
+        .select("negocio_id", { count: "exact", head: true })
+        .eq("perfil_id", user.id),
+    ]);
     nombreMostrado = perfil?.nombre || user.email || "Mi cuenta";
+    tieneNegocios = (count ?? 0) > 0;
+    esAdmin = perfil?.rol === "admin";
   }
 
   async function cerrarSesion() {
@@ -72,7 +80,7 @@ export default async function Header() {
         </nav>
 
         {nombreMostrado ? (
-          <MenuCuenta nombre={nombreMostrado} cerrarSesion={cerrarSesion} />
+          <MenuCuenta nombre={nombreMostrado} tieneNegocios={tieneNegocios} esAdmin={esAdmin} cerrarSesion={cerrarSesion} />
         ) : (
           <Link
             href="/login"
