@@ -116,7 +116,7 @@ export default async function BuscarPage({ searchParams }: PageProps) {
       <main className="min-h-screen bg-tierra-50 pt-24 pb-24">
         
         <header className="relative overflow-hidden pt-12 pb-16 md:pt-20 md:pb-20">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('/noise.svg')]" />
           <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
             <span className="mb-4 inline-block rounded-full border border-terracota-500/20 bg-terracota-500/10 px-4 py-1.5 text-sm font-bold tracking-[0.2em] uppercase text-terracota-600">
               Buscador

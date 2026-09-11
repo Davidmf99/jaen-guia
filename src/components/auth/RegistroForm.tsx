@@ -339,7 +339,7 @@ export default function RegistroForm() {
           <MensajeError id="email-error" texto={errorDe("email")} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-5">
           <div>
             <label htmlFor="password" className={LABEL}>
               Contraseña
@@ -371,7 +371,7 @@ export default function RegistroForm() {
           </div>
           <div>
             <label htmlFor="confirmPassword" className={LABEL}>
-              Repetir
+              Repetir contraseña
             </label>
             <div className="relative">
               <input

@@ -5,21 +5,10 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import BarraProgreso from "@/components/layout/BarraProgreso";
 
-import { Fraunces, Inter } from "next/font/google";
+import { Playfair_Display, Inter } from "next/font/google";
 
-// Las dos fuentes que declara globals.css. Estuvieron comentadas porque
-// el entorno de build no tenía salida a fonts.googleapis.com, así que
-// --font-display caía a Georgia y el cuerpo al sans del sistema: la
-// tipografía que se veía no era la diseñada.
-//
-// next/font las descarga en build y las sirve desde nuestro propio
-// dominio, así que no hay petición a Google en tiempo de ejecución (ni
-// el parpadeo de texto que trae cargar una fuente de fuera).
-//
-// display: "swap" a propósito: hasta que la fuente esté lista se lee el
-// texto con la de sistema. Para quien entra a mirar si hay algo esta
-// tarde, leer tarde es peor que leer en otra tipografía.
-const fraunces = Fraunces({
+// ... (skipping some comments)
+const playfair = Playfair_Display({
   variable: "--fuente-display",
   subsets: ["latin"],
   display: "swap",
@@ -51,8 +40,11 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`h-full antialiased ${fraunces.variable} ${inter.variable}`}
+      className={`h-full antialiased ${playfair.variable} ${inter.variable}`}
     >
+      <head>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         {/* Suspense porque BarraProgreso lee los search params: sin él, las
             páginas estáticas pasarían a renderizarse en cliente. */}

@@ -13,7 +13,7 @@ export default function EsenciaJaen() {
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_bottom_right,rgba(201,111,58,0.15)_0%,transparent_60%)] pointer-events-none" />
 
           {/* Textura sutil para darle calidad de material (ruido/grain) */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.04] mix-blend-overlay pointer-events-none" />
+          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.04] mix-blend-overlay pointer-events-none" />
 
           <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center justify-center text-white">
             <span className="mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-bold tracking-[0.2em] uppercase text-oliva-100 backdrop-blur-sm">

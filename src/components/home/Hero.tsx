@@ -44,7 +44,7 @@ export default function Hero({ categorias }: Props) {
   return (
     <section className="animar-entrada relative overflow-hidden pt-4 pb-6 md:pt-16 md:pb-16 bg-tierra-50">
       {/* Elemento decorativo sutil (grid/noise) */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('/noise.svg')]" />
 
       <div className="relative z-10 mx-auto max-w-6xl px-6">
         <div className="flex flex-col items-center text-center">
@@ -55,7 +55,7 @@ export default function Hero({ categorias }: Props) {
             Descubre la provincia
           </span>
 
-          <h1 className="font-display text-[clamp(2.5rem,13vw,7.5rem)] md:text-[clamp(4rem,11vw,7.5rem)] break-words leading-[0.85] tracking-[-0.04em] text-oliva-900 mb-3">
+          <h1 className="font-display text-[clamp(2.5rem,13vw,7.5rem)] md:text-[clamp(4rem,11vw,7.5rem)] break-words leading-none tracking-[-0.02em] text-oliva-900 mb-6 md:mb-10">
             Jaén.
           </h1>
 

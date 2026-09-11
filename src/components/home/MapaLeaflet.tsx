@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 
 // El icono por defecto de Leaflet referencia marker-icon-2x.png /
 // marker-shadow.png con rutas relativas que el bundler de Next no copia

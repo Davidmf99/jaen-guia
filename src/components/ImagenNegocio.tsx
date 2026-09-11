@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { gradientePara } from "@/lib/gradiente";
 import { atribucionValida } from "@/lib/atribucion";
 
@@ -51,7 +52,7 @@ export default function ImagenNegocio({
 }: Props) {
   const [fallo, setFallo] = useState(false);
 
-  const base = googlePhotoName ? `/api/foto-negocio/${negocioId}` : imagenPortada;
+  const base = imagenPortada ? imagenPortada : googlePhotoName ? `/api/foto-negocio/${negocioId}` : null;
   // Google a veces manda un aviso legal en lugar de un autor; en ese
   // caso esto es null y la etiqueta no se pinta (ver lib/atribucion.ts).
   const atribucion = atribucionValida(googlePhotoAtribucion);
@@ -79,18 +80,17 @@ export default function ImagenNegocio({
 
   return (
     <div className="absolute inset-0">
-      {/* eslint-disable-next-line @next/next/no-img-element -- proxy propio, no una URL remota directa */}
-      <img
-        src={googlePhotoName ? `${base}?w=800` : base}
-        srcSet={srcSet}
-        sizes={prioritaria ? "(min-width: 768px) 1100px, 100vw" : "(min-width: 768px) 380px, 92vw"}
+      <Image
+        src={base}
         alt=""
-        loading={prioritaria ? "eager" : "lazy"}
-        decoding="async"
+        fill
+        sizes={prioritaria ? "(min-width: 768px) 1100px, 100vw" : "(min-width: 768px) 380px, 92vw"}
+        priority={prioritaria}
         onError={() => setFallo(true)}
-        className="h-full w-full object-cover"
+        className="object-cover"
+        unoptimized={!googlePhotoName && base.startsWith('http')}
       />
-      {googlePhotoName && atribucion && (
+      {(!imagenPortada && googlePhotoName && atribucion) && (
         <span
           className={`absolute right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs leading-tight text-white ${
             posicionAtribucion === "top-right" ? "top-1" : "bottom-1"
