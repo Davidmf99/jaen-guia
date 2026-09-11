@@ -45,25 +45,34 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
           googlePhotoName={negocio.google_photo_name}
           googlePhotoAtribucion={negocio.google_photo_atribucion}
         />
-        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
-          {negocio.categoriaNombre && <span>{negocio.categoriaNombre}</span>}
-          {negocio.puntuacion_media && (
-            <span className="flex items-center gap-0.5 text-terracota-600">
-              <Star
-                size={14}
-                aria-hidden="true"
-                className="fill-terracota-500 text-terracota-500"
-              />
-              {negocio.puntuacion_media.toFixed(1)}
-            </span>
-          )}
-        </div>
-        <div className="absolute right-3 top-3 z-10">
-          <BotonFavorito
-            negocioId={negocio.id}
-            esFavorito={negocio.esFavorito ?? false}
-            rutaActual={rutaActual}
-          />
+        {/* Una sola fila flex para la etiqueta y el botón: con dos absolutos
+            independientes la etiqueta no sabe cuánto ocupa "Guardar" /
+            "Guardado" y se le montaba encima cuando llevaba puntuación. Aquí
+            el botón no encoge y la etiqueta recorta el nombre de categoría
+            (nunca la nota) con el espacio que queda. */}
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
+            {negocio.categoriaNombre && (
+              <span className="min-w-0 truncate">{negocio.categoriaNombre}</span>
+            )}
+            {negocio.puntuacion_media && (
+              <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-terracota-600">
+                <Star
+                  size={14}
+                  aria-hidden="true"
+                  className="fill-terracota-500 text-terracota-500"
+                />
+                {negocio.puntuacion_media.toFixed(1)}
+              </span>
+            )}
+          </div>
+          <div className="pointer-events-auto shrink-0">
+            <BotonFavorito
+              negocioId={negocio.id}
+              esFavorito={negocio.esFavorito ?? false}
+              rutaActual={rutaActual}
+            />
+          </div>
         </div>
       </div>
 
