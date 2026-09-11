@@ -34,6 +34,12 @@ export interface Negocio {
   google_place_id: string | null
   google_photo_name: string | null
   google_photo_atribucion: string | null
+  rango_precio: '€' | '€€' | '€€€' | '€€€€' | null
+  tipo_cocina: string[]
+  especialidades: string[]
+  servicios: string[]
+  email: string | null
+  instagram: string | null
   destacado: boolean
   es_imprescindible: boolean
   plan: 'gratis' | 'destacado'
