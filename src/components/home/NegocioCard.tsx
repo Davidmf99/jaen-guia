@@ -15,7 +15,12 @@ interface Props {
     | "google_photo_name"
     | "google_photo_atribucion"
     | "puntuacion_media"
-  > & { categoriaNombre?: string; esFavorito?: boolean };
+  > & {
+    categoriaNombre?: string;
+    esFavorito?: boolean;
+    /** Calculado en el servidor con estaAbierto(); null si no hay horario. */
+    abiertoAhora?: boolean | null;
+  };
   rutaActual: string;
 }
 
@@ -77,6 +82,19 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
       </div>
 
       <div className="p-4">
+        {negocio.abiertoAhora !== undefined && negocio.abiertoAhora !== null && (
+          <p
+            className={`mb-1.5 flex items-center gap-1.5 text-sm font-semibold ${
+              negocio.abiertoAhora ? "text-oliva-700" : "text-oliva-500"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${negocio.abiertoAhora ? "bg-green-600" : "bg-oliva-200"}`}
+            />
+            {negocio.abiertoAhora ? "Abierto ahora" : "Cerrado ahora"}
+          </p>
+        )}
         <h3 className="font-sans text-lg font-bold tracking-tight text-oliva-900">
           <Link
             href={`/negocio/${negocio.slug}`}

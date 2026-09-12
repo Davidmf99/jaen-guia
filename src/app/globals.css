@@ -4,6 +4,9 @@
   /* Paleta "Jaén Guía": tierra, verde oliva, ocre, terracota */
   --color-oliva-50: #f5f6ee;
   --color-oliva-100: #e6e9d3;
+  /* oliva-200 solo para bordes y puntos de estado: varias vistas ya lo
+     usaban sin que existiera el token (Tailwind lo ignoraba en silencio). */
+  --color-oliva-200: #d3d9b8;
   /* oliva-400 solo para degradados y rellenos decorativos: sobre blanco
      da 3.06:1 y sobre tierra-50 2.85:1, así que no vale para texto ni
      para iconos (WCAG pide 4.5:1 y 3:1). Para eso está oliva-500. */
@@ -21,6 +24,7 @@
      Para texto, y para cualquier fondo que lleve texto blanco encima, se
      usa terracota-600: 4.96:1 sobre tierra-50, 5.34:1 sobre blanco y
      5.34:1 con blanco encima. El 500 con blanco encima solo daba 3.61:1. */
+  --color-terracota-300: #e6a67a; /* decorativo: bordes en hover */
   --color-terracota-400: #d98a56;
   --color-terracota-500: #c96f3a;
   --color-terracota-600: #a85326;

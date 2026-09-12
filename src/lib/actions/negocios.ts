@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { enviarCorreo, correoSolicitudAprobada, correoSolicitudRechazada } from "@/lib/email";
 
 /**
  * Un usuario logueado pide gestionar un negocio existente ("¿Es tu
@@ -89,6 +91,8 @@ export async function resolverSolicitudNegocio(formData: FormData) {
     await supabase.from("negocios").update({ activo: true }).eq("id", negocioId).eq("activo", false);
   }
 
+  await avisarSolicitante(negocioId, perfilId, estado);
+
   revalidatePath("/admin/solicitudes");
   revalidatePath("/panel");
   if (slug) {
@@ -96,4 +100,28 @@ export async function resolverSolicitudNegocio(formData: FormData) {
     revalidatePath(`/panel/${slug}`);
   }
   redirect(`/admin/solicitudes?ok=${encodeURIComponent(estado === "aprobado" ? "Solicitud aprobada." : "Solicitud rechazada.")}`);
+}
+
+// Aviso por correo al dueño. El email vive en auth.users, que el
+// cliente de sesión no puede leer para otro usuario: hace falta el
+// cliente admin (service_role). Si falta la clave, o el correo falla,
+// la aprobación ya está hecha y solo se pierde el aviso.
+async function avisarSolicitante(negocioId: string, perfilId: string, estado: "aprobado" | "rechazado") {
+  const admin = createAdminClient();
+  if (!admin) {
+    console.warn("[email] sin SUPABASE_SERVICE_ROLE_KEY: no se avisa al solicitante");
+    return;
+  }
+
+  const [{ data: usuario }, { data: negocio }] = await Promise.all([
+    admin.auth.admin.getUserById(perfilId),
+    admin.from("negocios").select("nombre, slug").eq("id", negocioId).single(),
+  ]);
+
+  const para = usuario?.user?.email;
+  if (!para || !negocio) return;
+
+  const correo =
+    estado === "aprobado" ? correoSolicitudAprobada(negocio) : correoSolicitudRechazada(negocio);
+  await enviarCorreo({ para, ...correo });
 }

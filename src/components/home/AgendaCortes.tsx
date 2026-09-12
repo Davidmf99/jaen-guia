@@ -120,7 +120,7 @@ export default function AgendaCortes({ grupos }: Props) {
           )}
 
           <Link
-            href="/panel"
+            href="/para-negocios"
             className="mt-1 text-base font-semibold text-terracota-600 hover:underline"
           >
             ¿Tienes un negocio? Publica lo que pasa en tu local &rsaquo;

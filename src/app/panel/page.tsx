@@ -73,10 +73,14 @@ export default async function PanelPage() {
               <Link href="/contacto" className="font-semibold text-terracota-600 hover:underline">
                 escríbenos
               </Link>{" "}
-              y lo damos de alta.
+              y lo damos de alta.{" "}
+              <Link href="/para-negocios" className="font-semibold text-terracota-600 hover:underline">
+                Cómo funciona
+              </Link>
+              .
             </p>
             <Link
-              href="/buscar"
+              href="/para-negocios"
               className="mt-5 inline-flex min-h-11 items-center rounded-full bg-oliva-900 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
             >
               Buscar mi negocio

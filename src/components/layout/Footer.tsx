@@ -75,15 +75,15 @@ export default async function Footer() {
         <div>
           <p className="text-base font-semibold text-oliva-900">Tu negocio</p>
           <p className="mt-2 text-base text-oliva-700">
-            ¿Tienes un negocio en Jaén y quieres aparecer aquí? Crea tu
-            cuenta o escríbenos para que el equipo vincule tu ficha.
+            ¿Tienes un bar, tienda o local en Jaén? Seguramente ya tiene
+            ficha: reclámala gratis y gestiónala tú.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
-              href="/registro"
+              href="/para-negocios"
               className="inline-flex min-h-11 items-center rounded-full border border-oliva-600 px-5 text-base font-medium text-oliva-700 hover:bg-oliva-600 hover:text-white transition-colors"
             >
-              Crear cuenta
+              Reclamar mi negocio
             </Link>
             <Link
               href="/contacto"

@@ -17,7 +17,7 @@ import OverlayFormulario from "@/components/negocio/OverlayFormulario";
 import GestionarNegocio from "@/components/negocio/GestionarNegocio";
 import { gradientePara } from "@/lib/gradiente";
 import { SERVICIOS, etiquetaRangoPrecio } from "@/lib/servicios";
-import { horarioOrdenado } from "@/lib/horario";
+import { horarioOrdenado, estaAbierto, proximoCambio } from "@/lib/horario";
 
 function iniciales(nombre: string) {
   return nombre
@@ -123,6 +123,8 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
   const etiquetaPrecio = etiquetaRangoPrecio(negocio.rango_precio);
   const tieneDetalles = Boolean(etiquetaPrecio) || negocio.tipo_cocina.length > 0;
   const horario = horarioOrdenado(negocio.horario);
+  const abierto = estaAbierto(negocio.horario);
+  const cambio = proximoCambio(negocio.horario);
 
   async function crearResena(formData: FormData) {
     "use server";
@@ -500,10 +502,22 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
 
                 {horario.length > 0 && (
                   <div className="pt-6 border-t border-oliva-100/50 mt-6">
-                    <p className="flex items-center gap-3 font-bold text-oliva-900 mb-4">
+                    <p className="flex items-center gap-3 font-bold text-oliva-900 mb-2">
                       <Clock size={20} strokeWidth={1.5} className="text-terracota-500" />
                       Horario de apertura
                     </p>
+                    {abierto !== null && (
+                      <p className="mb-4 flex items-center gap-2 text-base font-semibold">
+                        <span
+                          aria-hidden="true"
+                          className={`h-2.5 w-2.5 rounded-full ${abierto ? "bg-green-600" : "bg-oliva-200"}`}
+                        />
+                        <span className={abierto ? "text-oliva-900" : "text-oliva-600"}>
+                          {abierto ? "Abierto ahora" : "Cerrado ahora"}
+                        </span>
+                        {cambio && <span className="font-medium text-oliva-600">· {cambio}</span>}
+                      </p>
+                    )}
                     <ul className="space-y-3 text-base font-medium text-oliva-700">
                       {horario.map(({ clave, etiqueta, horas }) => (
                         <li key={clave} className="flex justify-between gap-4">

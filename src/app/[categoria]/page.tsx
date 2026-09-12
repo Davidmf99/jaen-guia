@@ -9,6 +9,8 @@ import { calcularPuntuacionMedia } from "@/lib/resenas";
 import { getUsuarioYFavoritos } from "@/lib/favoritos";
 import { getCategoriaPorSlug } from "@/lib/categorias";
 import GridStagger from "@/components/motion/GridStagger";
+import { SERVICIOS } from "@/lib/servicios";
+import { estaAbierto } from "@/lib/horario";
 import type { Categoria } from "@/types";
 
 // Copy editorial por categoría (párrafo de cabecera + meta description).
@@ -42,6 +44,29 @@ const ORDENES = [
 
 type OrdenValor = (typeof ORDENES)[number]["valor"];
 
+// Chips de filtro por servicio (negocios.servicios, migración 0010).
+// No todos los del catálogo: solo los que alguien usa para decidir
+// "dónde voy ahora". Por tipo de categoría, porque "menú del día" en
+// Naturaleza no significa nada.
+const FILTROS_SERVICIO: Record<Categoria["tipo"], string[]> = {
+  comer_beber: ["terraza", "reservas", "menu_dia", "desayunos", "para_llevar", "a_domicilio", "ninos", "mascotas", "accesible"],
+  ocio: ["reservas", "ninos", "mascotas", "accesible", "parking"],
+  tienda: ["a_domicilio", "tarjeta", "accesible", "parking"],
+  cultura: ["ninos", "accesible", "parking"],
+  naturaleza: ["ninos", "mascotas", "accesible", "parking"],
+};
+
+// Tope de filas cuando hay que filtrar en memoria ("abierto ahora" se
+// decide en JS a partir del jsonb de horario). Mismo criterio que
+// CAP_VALORACION.
+const CAP_FILTRO_MEMORIA = 400;
+
+interface Filtros {
+  zona: string | null;
+  servicios: string[];
+  abiertoAhora: boolean;
+}
+
 interface NegocioRow {
   id: string;
   nombre: string;
@@ -50,11 +75,12 @@ interface NegocioRow {
   imagen_portada: string | null;
   google_photo_name: string | null;
   google_photo_atribucion: string | null;
+  horario: Record<string, string> | null;
   categoria: { nombre: string } | null;
   resenas: { puntuacion: number }[];
 }
 
-function aTarjeta(negocio: NegocioRow) {
+function aTarjeta(negocio: NegocioRow, ahora: Date) {
   return {
     id: negocio.id,
     slug: negocio.slug,
@@ -65,6 +91,7 @@ function aTarjeta(negocio: NegocioRow) {
     google_photo_atribucion: negocio.google_photo_atribucion,
     categoriaNombre: negocio.categoria?.nombre,
     puntuacion_media: calcularPuntuacionMedia(negocio.resenas),
+    abiertoAhora: estaAbierto(negocio.horario, ahora),
   };
 }
 
@@ -72,40 +99,45 @@ async function getNegocios(
   tipo: Categoria["tipo"],
   orden: OrdenValor,
   pagina: number,
-  zona: string | null
+  filtros: Filtros
 ) {
   const supabase = await createClient();
+  const ahora = new Date();
   const SELECT =
-    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
+    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, horario, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
 
-  if (orden === "valoracion") {
-    // No existe una columna puntuacion_media en negocios (es un valor
-    // calculado a partir de resenas), así que aquí no se puede resolver
-    // el order()/range() en la propia consulta SQL: hay que traer un
-    // conjunto acotado y ordenar en memoria, igual que en
-    // BentoDestacados.tsx. Si el catálogo crece mucho, esto debería
-    // sustituirse por una vista con avg(puntuacion) para paginar de
-    // verdad en la base de datos.
+  // "Abierto ahora" se decide en JS (el horario es jsonb con texto tipo
+  // "12:00–24:00"), y "mejor valorados" ordena por un valor calculado a
+  // partir de resenas: en los dos casos no se puede paginar en SQL, así
+  // que se trae un conjunto acotado y se filtra/ordena en memoria, igual
+  // que en BentoDestacados.tsx. Si el catálogo crece mucho, esto debería
+  // sustituirse por columnas/vistas materializadas para paginar de
+  // verdad en la base de datos.
+  if (orden === "valoracion" || filtros.abiertoAhora) {
     let query = supabase
       .from("negocios")
       .select(SELECT)
       .eq("categoria.tipo", tipo)
-      .limit(CAP_VALORACION);
-
-    if (zona) query = query.eq("zona", zona);
+      .order("destacado", { ascending: false })
+      .order(orden === "recientes" ? "created_at" : "nombre", { ascending: orden !== "recientes" })
+      .limit(Math.max(CAP_VALORACION, CAP_FILTRO_MEMORIA));
+    if (filtros.zona) query = query.eq("zona", filtros.zona);
+    // servicios @> array: el negocio tiene TODOS los marcados.
+    if (filtros.servicios.length > 0) query = query.contains("servicios", filtros.servicios);
 
     const { data, error } = await query.returns<NegocioRow[]>();
-
     if (error || !data) return { negocios: [], total: 0 };
 
-    const ordenados = data
-      .map(aTarjeta)
-      .sort((a, b) => (b.puntuacion_media ?? 0) - (a.puntuacion_media ?? 0));
+    let lista = data.map((n) => aTarjeta(n, ahora));
+    if (filtros.abiertoAhora) lista = lista.filter((n) => n.abiertoAhora === true);
+    if (orden === "valoracion") {
+      lista.sort((a, b) => (b.puntuacion_media ?? 0) - (a.puntuacion_media ?? 0));
+    }
 
     const desde = (pagina - 1) * PAGE_SIZE;
     return {
-      negocios: ordenados.slice(desde, desde + PAGE_SIZE),
-      total: ordenados.length,
+      negocios: lista.slice(desde, desde + PAGE_SIZE),
+      total: lista.length,
     };
   }
 
@@ -114,8 +146,8 @@ async function getNegocios(
     .from("negocios")
     .select(SELECT, { count: "exact" })
     .eq("categoria.tipo", tipo);
-
-  if (zona) query = query.eq("zona", zona);
+  if (filtros.zona) query = query.eq("zona", filtros.zona);
+  if (filtros.servicios.length > 0) query = query.contains("servicios", filtros.servicios);
 
   query =
     orden === "recientes"
@@ -128,7 +160,7 @@ async function getNegocios(
 
   if (error || !data) return { negocios: [], total: 0 };
 
-  return { negocios: data.map(aTarjeta), total: count ?? data.length };
+  return { negocios: data.map((n) => aTarjeta(n, ahora)), total: count ?? data.length };
 }
 
 // Zonas disponibles para el desplegable: solo las que existan de verdad
@@ -154,7 +186,15 @@ async function getZonasDisponibles(tipo: Categoria["tipo"]) {
 
 interface PageProps {
   params: Promise<{ categoria: string }>;
-  searchParams: Promise<{ orden?: string; pagina?: string; zona?: string }>;
+  searchParams: Promise<{
+    orden?: string;
+    pagina?: string;
+    zona?: string;
+    /** Claves de servicio separadas por coma: ?servicios=terraza,reservas */
+    servicios?: string;
+    /** ?abierto=1 */
+    abierto?: string;
+  }>;
 }
 
 export async function generateMetadata({
@@ -182,9 +222,18 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
     : "relevancia";
   const pagina = Math.max(1, Number(sp.pagina) || 1);
   const zonaSeleccionada = sp.zona || null;
+  const chipsServicio = FILTROS_SERVICIO[info.tipo]
+    .map((clave) => SERVICIOS.find((s) => s.clave === clave))
+    .filter((s): s is (typeof SERVICIOS)[number] => Boolean(s));
+  const serviciosSeleccionados = (sp.servicios ?? "")
+    .split(",")
+    .filter((clave) => chipsServicio.some((s) => s.clave === clave));
+  const abiertoAhora = sp.abierto === "1";
+  const filtros: Filtros = { zona: zonaSeleccionada, servicios: serviciosSeleccionados, abiertoAhora };
+  const hayFiltros = abiertoAhora || serviciosSeleccionados.length > 0 || Boolean(zonaSeleccionada);
 
   const [{ negocios, total }, zonasDisponibles, { favoritoIds }] = await Promise.all([
-    getNegocios(info.tipo, orden, pagina, zonaSeleccionada),
+    getNegocios(info.tipo, orden, pagina, filtros),
     getZonasDisponibles(info.tipo),
     getUsuarioYFavoritos(),
   ]);
@@ -194,17 +243,29 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
   }));
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Construye la URL conservando los filtros activos; un valor vacío
+  // quita ese parámetro.
   const hrefConParams = (nuevosParams: Record<string, string | number>) => {
-    const base: Record<string, string> = zonaSeleccionada
-      ? { zona: zonaSeleccionada }
-      : {};
-    const query = new URLSearchParams({
-      ...base,
-      ...Object.fromEntries(
-        Object.entries(nuevosParams).map(([k, v]) => [k, String(v)])
-      ),
-    });
-    return `/${categoria}?${query.toString()}`;
+    const base: Record<string, string> = {};
+    if (zonaSeleccionada) base.zona = zonaSeleccionada;
+    if (serviciosSeleccionados.length > 0) base.servicios = serviciosSeleccionados.join(",");
+    if (abiertoAhora) base.abierto = "1";
+    if (orden !== "relevancia") base.orden = orden;
+    const query = new URLSearchParams(base);
+    for (const [k, v] of Object.entries(nuevosParams)) {
+      if (v === "" || (k === "pagina" && Number(v) <= 1)) query.delete(k);
+      else query.set(k, String(v));
+    }
+    const qs = query.toString();
+    return qs ? `/${categoria}?${qs}` : `/${categoria}`;
+  };
+
+  const hrefServicio = (clave: string) => {
+    const activo = serviciosSeleccionados.includes(clave);
+    const nuevos = activo
+      ? serviciosSeleccionados.filter((c) => c !== clave)
+      : [...serviciosSeleccionados, clave];
+    return hrefConParams({ servicios: nuevos.join(","), pagina: 1 });
   };
 
 
@@ -213,7 +274,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
       <main className="min-h-screen bg-tierra-50 pb-24">
         {/* Cabecera monumental */}
         <header className="relative overflow-hidden pt-24 pb-16 md:pt-32 md:pb-24">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('/noise.svg')]" />
           <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
             <h1 className="font-display text-6xl md:text-[100px] leading-[0.85] tracking-tight text-oliva-900 mb-6">
               {info.nombre}
@@ -259,6 +320,10 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                 className="flex items-center gap-3 px-2 border-t border-oliva-100/50 pt-3 md:pt-0 md:border-t-0 md:border-l"
               >
                 <input type="hidden" name="orden" value={orden} />
+                {serviciosSeleccionados.length > 0 && (
+                  <input type="hidden" name="servicios" value={serviciosSeleccionados.join(",")} />
+                )}
+                {abiertoAhora && <input type="hidden" name="abierto" value="1" />}
                 <label htmlFor="zona" className="sr-only">Zona</label>
                 {/* appearance-none quitaba la flecha del sistema y dejaba
                     el desplegable idéntico a los chips de "Ordenar" de al
@@ -294,11 +359,63 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
         </div>
 
         <div className="mx-auto max-w-6xl px-6">
+          {/* Chips de filtro: enlaces, no formulario, para que funcionen
+              sin JS y cada combinación tenga URL propia (compartible). */}
+          <nav aria-label="Filtros" className="-mt-4 mb-10 flex flex-wrap items-center gap-2">
+            <Link
+              href={hrefConParams({ abierto: abiertoAhora ? "" : "1", pagina: 1 })}
+              aria-pressed={abiertoAhora}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-base font-semibold transition-colors ${
+                abiertoAhora
+                  ? "border-oliva-900 bg-oliva-900 text-white"
+                  : "border-oliva-100 bg-white text-oliva-900 hover:border-oliva-900"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full ${abiertoAhora ? "bg-white" : "bg-oliva-500"}`}
+              />
+              Abierto ahora
+            </Link>
+            {chipsServicio.map(({ clave, etiqueta, icono: Icono }) => {
+              const activo = serviciosSeleccionados.includes(clave);
+              return (
+                <Link
+                  key={clave}
+                  href={hrefServicio(clave)}
+                  aria-pressed={activo}
+                  className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-base font-semibold transition-colors ${
+                    activo
+                      ? "border-oliva-900 bg-oliva-900 text-white"
+                      : "border-oliva-100 bg-white text-oliva-900 hover:border-oliva-900"
+                  }`}
+                >
+                  <Icono size={16} aria-hidden="true" className={activo ? "text-white" : "text-terracota-500"} />
+                  {etiqueta}
+                </Link>
+              );
+            })}
+            {hayFiltros && (
+              <Link
+                href={orden === "relevancia" ? `/${categoria}` : `/${categoria}?orden=${orden}`}
+                className="inline-flex min-h-11 items-center px-3 text-base font-semibold text-terracota-600 hover:underline"
+              >
+                Quitar filtros
+              </Link>
+            )}
+          </nav>
+
           {negocios.length === 0 ? (
-            <EstadoVacio mensaje={`Aún no hay negocios en ${info.nombre.toLowerCase()}`} />
+            <EstadoVacio
+              mensaje={
+                hayFiltros
+                  ? "Nada con esos filtros ahora mismo. Prueba a quitar alguno."
+                  : `Aún no hay negocios en ${info.nombre.toLowerCase()}`
+              }
+            />
           ) : (
             <>
-              <GridStagger key={`${orden}-${zonaSeleccionada}-${pagina}`} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <GridStagger key={`${orden}-${zonaSeleccionada}-${serviciosSeleccionados.join(",")}-${abiertoAhora}-${pagina}`} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {negociosConFavorito.map((negocio) => (
                   <NegocioCard
                     key={negocio.slug}
