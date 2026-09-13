@@ -20,6 +20,8 @@ interface Props {
     esFavorito?: boolean;
     /** Calculado en el servidor con estaAbierto(); null si no hay horario. */
     abiertoAhora?: boolean | null;
+    /** negocios.es_destacado: insignia y borde para que se note en el listado. */
+    destacado?: boolean;
   };
   rutaActual: string;
 }
@@ -41,7 +43,11 @@ const ASPECTO_IMAGEN = "aspect-[16/10]";
 // no llegaba a ejecutarse, los listados se veían vacíos.
 export default function NegocioCard({ negocio, rutaActual }: Props) {
   return (
-    <article className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
+    <article
+      className={`group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow ${
+        negocio.destacado ? "ring-2 ring-terracota-500/60" : ""
+      }`}
+    >
       <div className={`relative ${ASPECTO_IMAGEN} overflow-hidden`}>
         <ImagenNegocio
           negocioId={negocio.id}
@@ -57,6 +63,13 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
             (nunca la nota) con el espacio que queda. */}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
+            {negocio.destacado && (
+              <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold text-terracota-600">
+                <Star size={14} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
+                Destacado
+                {negocio.categoriaNombre && <span className="mx-0.5 text-oliva-300" aria-hidden="true">·</span>}
+              </span>
+            )}
             {negocio.categoriaNombre && (
               <span className="min-w-0 truncate">{negocio.categoriaNombre}</span>
             )}

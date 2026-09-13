@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Search, UserCheck, PencilLine, CalendarPlus, Star, Clock, Camera, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PRECIO_EVENTO_PROMOCIONADO, PRECIO_PLAN_DESTACADO } from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Para negocios · Jaén Guía",
@@ -150,13 +151,53 @@ export default async function ParaNegociosPage() {
         </div>
       </section>
 
+      <section id="destacado" className="mx-auto mt-20 max-w-6xl scroll-mt-24 px-6">
+        <h2 className="mb-3 font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600">
+          Si quieres más visibilidad
+        </h2>
+        <p className="mb-8 max-w-2xl text-lg text-oliva-700">
+          Lo básico es gratis y lo seguirá siendo. Esto es lo que puedes añadir cuando quieras que
+          te vea más gente. Se activa desde tu panel, con tarjeta, y sin permanencia.
+        </p>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <article className="rounded-[2rem] border border-oliva-100 bg-white p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <h3 className="flex items-center gap-2 font-sans text-xl font-bold text-oliva-900">
+              <Sparkles size={22} strokeWidth={1.5} className="text-terracota-500" aria-hidden="true" />
+              Evento promocionado
+            </h3>
+            <p className="mt-1 font-display text-3xl text-oliva-900">
+              {PRECIO_EVENTO_PROMOCIONADO} <span className="text-base font-sans text-oliva-600">por evento</span>
+            </p>
+            <p className="mt-3 text-oliva-700">
+              Tu concierto, cata o partido arriba en la agenda y en la portada hasta que se celebre.
+              Pago único, para cuando tienes algo puntual que llenar.
+            </p>
+          </article>
+          <article className="rounded-[2rem] bg-oliva-900 p-7 text-white shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+            <h3 className="flex items-center gap-2 font-sans text-xl font-bold">
+              <Star size={22} strokeWidth={1.5} className="text-terracota-500" aria-hidden="true" />
+              Plan Destacado
+            </h3>
+            <p className="mt-1 font-display text-3xl">
+              {PRECIO_PLAN_DESTACADO.replace("/mes", "")} <span className="text-base font-sans text-white/70">al mes</span>
+            </p>
+            <ul className="mt-3 space-y-1.5 text-white/85">
+              <li>· Tu ficha en la portada y arriba en su categoría, con insignia.</li>
+              <li>· Todos tus eventos promocionados, sin pagar uno a uno.</li>
+              <li>· Revisamos tu Instagram a mano cada semana, stories incluidas.</li>
+            </ul>
+            <p className="mt-4 text-sm text-white/60">Cancelas cuando quieras desde tu panel.</p>
+          </article>
+        </div>
+      </section>
+
       <section className="mx-auto mt-20 max-w-3xl px-6">
         <h2 className="mb-6 font-sans text-sm font-bold uppercase tracking-[0.2em] text-terracota-600">
           Preguntas habituales
         </h2>
         <dl className="divide-y divide-oliva-100 rounded-[2rem] border border-oliva-100 bg-white px-7">
           {[
-            ["¿Cuánto cuesta?", "Nada. Ni ahora ni después para lo básico: ficha, horario, fotos, especialidades y eventos."],
+            ["¿Cuánto cuesta?", "Nada para lo básico: ficha, horario, fotos, especialidades y eventos. Si quieres más visibilidad, arriba tienes las dos opciones de pago."],
             ["¿Cómo sabéis que el negocio es mío?", "Te llamamos al teléfono que tiene el local en Google (o al que nos dejes) y lo confirmamos. Suele ser el mismo día."],
             ["Tengo dos locales, ¿puedo llevar los dos?", "Sí. Reclamas cada uno desde su ficha y los gestionas desde la misma cuenta."],
             ["¿Y si mi negocio no aparece?", "Escríbenos con el nombre y la dirección y lo damos de alta. Después lo reclamas igual."],

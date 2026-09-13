@@ -36,14 +36,15 @@ function aTarjeta(negocio: NegocioRow) {
     google_photo_name: negocio.google_photo_name,
     google_photo_atribucion: negocio.google_photo_atribucion,
     categoriaNombre: negocio.categoria?.nombre,
+    destacado: true,
     puntuacion_media: calcularPuntuacionMedia(negocio.resenas),
   };
 }
 
 // A diferencia de [categoria]/page.tsx, aquí no se filtra por
 // categoria.tipo (destacados cruza las 5) y no hace falta paginar: es
-// una selección editorial pequeña y curada a mano con `destacado =
-// true`, no un listado grande.
+// una selección pequeña (editorial a mano o plan Destacado pagado,
+// `es_destacado`, migración 0017), no un listado grande.
 async function getDestacados() {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -51,7 +52,7 @@ async function getDestacados() {
     .select(
       "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias(nombre), resenas(puntuacion)"
     )
-    .eq("destacado", true)
+    .eq("es_destacado", true)
     .order("nombre", { ascending: true })
     .returns<NegocioRow[]>();
 

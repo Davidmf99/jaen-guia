@@ -41,6 +41,8 @@ export interface Negocio {
   email: string | null
   instagram: string | null
   destacado: boolean
+  /** destacado OR plan = 'destacado' (columna generada, 0017). */
+  es_destacado: boolean
   es_imprescindible: boolean
   plan: 'gratis' | 'destacado'
   activo: boolean

@@ -78,6 +78,7 @@ interface NegocioRow {
   google_photo_atribucion: string | null;
   horario: Record<string, string> | null;
   tipo_cocina: string[] | null;
+  es_destacado: boolean;
   categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   resenas: { puntuacion: number }[];
 }
@@ -93,6 +94,7 @@ function aTarjeta(negocio: NegocioRow, ahora: Date) {
     google_photo_name: negocio.google_photo_name,
     google_photo_atribucion: negocio.google_photo_atribucion,
     categoriaNombre: negocio.categoria?.nombre,
+    destacado: negocio.es_destacado,
     puntuacion_media: calcularPuntuacionMedia(negocio.resenas),
     // undefined = la tarjeta no pinta nada (naturaleza).
     abiertoAhora: conHorario ? estaAbierto(negocio.horario, ahora) : undefined,
@@ -108,7 +110,7 @@ async function getNegocios(
   const supabase = await createClient();
   const ahora = new Date();
   const SELECT =
-    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, horario, tipo_cocina, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
+    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, horario, tipo_cocina, es_destacado, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
 
   // "Abierto ahora" se decide en JS (el horario es jsonb con texto tipo
   // "12:00–24:00"), y "mejor valorados" ordena por un valor calculado a
@@ -122,7 +124,7 @@ async function getNegocios(
       .from("negocios")
       .select(SELECT)
       .eq("categoria.tipo", tipo)
-      .order("destacado", { ascending: false })
+      .order("es_destacado", { ascending: false })
       .order(orden === "recientes" ? "created_at" : "nombre", { ascending: orden !== "recientes" })
       .limit(Math.max(CAP_VALORACION, CAP_FILTRO_MEMORIA));
     if (filtros.zona) query = query.eq("zona", filtros.zona);
@@ -156,7 +158,7 @@ async function getNegocios(
   query =
     orden === "recientes"
       ? query.order("created_at", { ascending: false })
-      : query.order("destacado", { ascending: false }).order("nombre", { ascending: true });
+      : query.order("es_destacado", { ascending: false }).order("nombre", { ascending: true });
 
   const { data, error, count } = await query
     .range(desde, desde + PAGE_SIZE - 1)

@@ -6,6 +6,7 @@ import NegocioCard from "./NegocioCard";
 import EstadoVacio from "./EstadoVacio";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import GridStagger from "@/components/motion/GridStagger";
+import { PRECIO_PLAN_DESTACADO } from "@/lib/stripe";
 
 interface NegocioDestacadoRow {
   id: string;
@@ -16,7 +17,26 @@ interface NegocioDestacadoRow {
   google_photo_name: string | null;
   google_photo_atribucion: string | null;
   categoria: { nombre: string } | null;
+  plan: string;
   resenas: { puntuacion: number }[];
+}
+
+const HUECOS = 3;
+
+// Los que pagan el plan Destacado van primero; si hay más de HUECOS,
+// rotan por días para que todos salgan en portada. Detrás, la selección
+// editorial por valoración.
+function ordenarParaPortada<T extends { plan: string; puntuacion_media: number | null | undefined }>(lista: T[]): T[] {
+  const porValoracion = (a: T, b: T) => (b.puntuacion_media ?? 0) - (a.puntuacion_media ?? 0);
+  const pagados = lista.filter((n) => n.plan === "destacado").sort(porValoracion);
+  const editoriales = lista.filter((n) => n.plan !== "destacado").sort(porValoracion);
+
+  if (pagados.length > HUECOS) {
+    const dia = Math.floor(Date.now() / 86_400_000);
+    const desde = dia % pagados.length;
+    return [...pagados.slice(desde), ...pagados.slice(0, desde)].slice(0, HUECOS);
+  }
+  return [...pagados, ...editoriales].slice(0, HUECOS);
 }
 
 async function getDestacados() {
@@ -24,16 +44,17 @@ async function getDestacados() {
   const { data, error } = await supabase
     .from("negocios")
     .select(
-      "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, categoria:categorias(nombre), resenas(puntuacion)"
+      "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, plan, categoria:categorias(nombre), resenas(puntuacion)"
     )
-    .eq("destacado", true)
+    .eq("es_destacado", true)
     .returns<NegocioDestacadoRow[]>();
 
   if (error || !data) return [];
 
-  return data
-    .map((negocio) => ({
+  return ordenarParaPortada(
+    data.map((negocio) => ({
       id: negocio.id,
+      plan: negocio.plan,
       nombre: negocio.nombre,
       slug: negocio.slug,
       descripcion_corta: negocio.descripcion_corta,
@@ -41,16 +62,13 @@ async function getDestacados() {
       google_photo_name: negocio.google_photo_name,
       google_photo_atribucion: negocio.google_photo_atribucion,
       categoriaNombre: negocio.categoria?.nombre,
-      // Ordenar en memoria (más abajo) solo es correcto aquí porque el
-      // filtro `destacado = true` ya reduce el resultado a un conjunto
-      // pequeño y curado a mano. Si esta misma lógica se reutiliza para
-      // un listado tipo "mejor valorados" sin ese filtro, hay que mover
-      // el order() y limit() a la propia consulta SQL (o crear una vista
-      // con avg(puntuacion)), no seguir ordenando en memoria.
+      // Ordenar en memoria (ordenarParaPortada) solo es correcto aquí
+      // porque el filtro `es_destacado = true` ya reduce el resultado a
+      // un conjunto pequeño. Para un listado grande tipo "mejor
+      // valorados" habría que ordenar y limitar en SQL.
       puntuacion_media: calcularPuntuacionMedia(negocio.resenas),
     }))
-    .sort((a, b) => (b.puntuacion_media ?? 0) - (a.puntuacion_media ?? 0))
-    .slice(0, 3);
+  );
 }
 
 export default async function BentoDestacados() {
@@ -61,6 +79,7 @@ export default async function BentoDestacados() {
   const conFavorito = destacados.map((negocio) => ({
     ...negocio,
     esFavorito: favoritoIds.has(negocio.id),
+    destacado: true,
   }));
   const [principal, ...resto] = conFavorito;
 
@@ -98,6 +117,20 @@ export default async function BentoDestacados() {
           )}
         </GridStagger>
       )}
+
+      {/* Hueco de venta: es el sitio donde un dueño ve lo que compra. */}
+      <p className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-terracota-500/40 bg-white px-5 py-4 text-base text-oliva-700">
+        <span>
+          <span className="font-semibold text-oliva-900">¿Quieres destacar tu negocio?</span> Sale aquí, en la
+          portada, y arriba en su categoría. Desde {PRECIO_PLAN_DESTACADO}.
+        </span>
+        <Link
+          href="/para-negocios#destacado"
+          className="inline-flex min-h-11 items-center gap-1 rounded-full bg-terracota-500 px-5 font-semibold text-white hover:bg-terracota-600 transition-colors"
+        >
+          Añade el tuyo &rsaquo;
+        </Link>
+      </p>
     </AnimatedSection>
   );
 }

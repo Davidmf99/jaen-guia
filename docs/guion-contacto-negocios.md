@@ -42,7 +42,7 @@ en el chat.
 
 ## 5. Plan Destacado (solo si hay interés)
 
-> Si queréis más visibilidad, hay un plan Destacado por **19 €/mes**: salís
+> Si queréis más visibilidad, hay un plan Destacado por **14,99 €/mes, IVA incluido**: salís
 > arriba en la portada y en vuestra categoría, y además os reviso yo el
 > Instagram cada semana, **stories incluidas**, para que no se quede nada
 > fuera aunque no lo subáis como post.
@@ -68,7 +68,7 @@ pensáis y me decís por WhatsApp".
 | Dicen | Respondes |
 |---|---|
 | "No tengo tiempo" | "No hace falta nada por vuestra parte, por eso he venido yo." |
-| "¿Cuánto cuesta?" | "Lo básico, nada. El Destacado, 19 €/mes, y es opcional." |
+| "¿Cuánto cuesta?" | "Lo básico, nada. El Destacado, 14,99 €/mes con IVA, y es opcional." |
 | "Solo uso stories" | "Sube el mismo cartel como foto, tardas lo mismo, y os lo cogemos." |
 | "¿Quién lo ve?" | Enseña la portada y la agenda del día en el móvil. |
 | "¿Y si sale mal la fecha?" | "Lo reviso antes de publicar; si se cuela algo, un WhatsApp y lo cambio." |

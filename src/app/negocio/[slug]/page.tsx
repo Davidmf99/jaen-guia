@@ -66,6 +66,7 @@ interface NegocioFichaRow {
   servicios: string[];
   email: string | null;
   instagram: string | null;
+  es_destacado: boolean;
   categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   resenas: ResenaRow[];
 }
@@ -77,7 +78,7 @@ const getNegocio = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("negocios")
     .select(
-      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, categoria:categorias(nombre, tipo), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
+      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, es_destacado, categoria:categorias(nombre, tipo), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
     )
     .eq("slug", slug)
     .single()
@@ -186,9 +187,17 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
 
             <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-white flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="max-w-3xl">
-                <span className="mb-3 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold uppercase tracking-widest backdrop-blur-md">
-                  {negocio.categoria?.nombre}
-                  {negocio.zona ? ` · ${negocio.zona}` : ""}
+                <span className="mb-3 inline-flex flex-wrap items-center gap-2">
+                  {negocio.es_destacado && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-terracota-500 px-3 py-1 text-sm font-bold uppercase tracking-widest">
+                      <Star size={14} aria-hidden="true" className="fill-white" />
+                      Destacado
+                    </span>
+                  )}
+                  <span className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold uppercase tracking-widest backdrop-blur-md">
+                    {negocio.categoria?.nombre}
+                    {negocio.zona ? ` · ${negocio.zona}` : ""}
+                  </span>
                 </span>
                 <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-6xl mb-4">
                   {negocio.nombre}
