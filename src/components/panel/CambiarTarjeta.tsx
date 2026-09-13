@@ -68,12 +68,12 @@ export default function CambiarTarjeta({ slugNegocio, publishableKey }: Props) {
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret, appearance: APARIENCIA, locale: "es" }}>
-      <FormularioTarjeta slugNegocio={slugNegocio} onCancelar={() => setClientSecret(null)} />
+      <FormularioTarjeta slugNegocio={slugNegocio} onCerrar={() => setClientSecret(null)} />
     </Elements>
   );
 }
 
-function FormularioTarjeta({ slugNegocio, onCancelar }: { slugNegocio: string; onCancelar: () => void }) {
+function FormularioTarjeta({ slugNegocio, onCerrar }: { slugNegocio: string; onCerrar: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -105,6 +105,10 @@ function FormularioTarjeta({ slugNegocio, onCancelar }: { slugNegocio: string; o
       setEnviando(false);
       return;
     }
+    // Misma ruta (solo cambia la query), así que este componente sobrevive
+    // a la navegación: si no se cierra, el formulario se queda abierto con
+    // la tarjeta recién guardada debajo del aviso de éxito.
+    onCerrar();
     router.push(`/panel/${slugNegocio}/suscripcion?ok=${encodeURIComponent("Tarjeta actualizada.")}`);
     router.refresh();
   }
@@ -124,7 +128,7 @@ function FormularioTarjeta({ slugNegocio, onCancelar }: { slugNegocio: string; o
         </button>
         <button
           type="button"
-          onClick={onCancelar}
+          onClick={onCerrar}
           className="inline-flex min-h-11 items-center rounded-full border border-oliva-200 px-5 text-base font-semibold text-oliva-900 hover:border-oliva-900 transition-colors"
         >
           Cancelar

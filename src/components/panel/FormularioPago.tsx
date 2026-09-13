@@ -218,7 +218,9 @@ function Formulario({ checkout, negocioNombre, esSuscripcion, urlVuelta, email: 
         <div>
           <p className={ETIQUETA}>Correo para el recibo</p>
           <p className="mt-1 rounded-xl bg-tierra-50 px-3 py-2.5 text-base text-oliva-900">{email}</p>
-          <p className="mt-1 text-sm text-oliva-600">El de tu cuenta. Si quieres otro para las facturas, cámbialo luego desde «Gestionar suscripción».</p>
+          {/* Antes prometía cambiarlo desde «Gestionar suscripción»: esa
+              página no lo permite, y en un pago único ni siquiera existe. */}
+          <p className="mt-1 text-sm text-oliva-600">El de tu cuenta. Ahí te llegará el recibo.</p>
         </div>
         <div>
           <label htmlFor="pago-nombre" className={ETIQUETA}>Nombre y apellidos</label>
