@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enviarCorreo, correoSolicitudAprobada, correoSolicitudRechazada } from "@/lib/email";
+import {
+  enviarCorreo,
+  avisarAdmin,
+  correoSolicitudRecibida,
+  correoAdminNuevaSolicitud,
+  correoSolicitudAprobada,
+  correoSolicitudRechazada,
+} from "@/lib/email";
 
 /**
  * Un usuario logueado pide gestionar un negocio existente ("¿Es tu
@@ -47,6 +54,18 @@ export async function solicitarGestionNegocio(formData: FormData) {
         ? "Ya habías pedido gestionar este negocio."
         : "No hemos podido enviar la solicitud. Inténtalo de nuevo.";
     redirect(`${rutaFicha}?solicitud=${encodeURIComponent(texto)}#gestionar`);
+  }
+
+  // Acuse al dueño y aviso al admin. Si el correo falla, la solicitud
+  // ya está guardada y se ve en /admin/solicitudes igualmente.
+  const { data: negocio } = await supabase.from("negocios").select("nombre, slug").eq("id", negocioId).maybeSingle<{ nombre: string; slug: string }>();
+  if (negocio && user.email) {
+    const meta = user.user_metadata ?? {};
+    const nombre = [meta.nombre, meta.apellidos].filter(Boolean).join(" ") || null;
+    await Promise.all([
+      enviarCorreo({ para: user.email, ...correoSolicitudRecibida(negocio) }),
+      avisarAdmin(correoAdminNuevaSolicitud({ negocio, solicitante: { nombre, email: user.email }, mensaje, telefono })),
+    ]);
   }
 
   revalidatePath(rutaFicha);

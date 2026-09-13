@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { descifrar } from "@/lib/cifrado";
 import { eventosDePagina, postsDePagina, mediaDeInstagram, descargarImagen } from "@/lib/facebook";
 import { procesarEntradaBuzon, insertarBorrador, BUCKET_BUZON, type NegocioBuzon } from "@/lib/buzon";
-import { enviarCorreo, correoBorradoresNuevos } from "@/lib/email";
+import { enviarCorreos, emailsDeNegocio, correoBorradoresNuevos } from "@/lib/email";
 
 // Lee la página de Facebook (y el Instagram vinculado) de un negocio y
 // deja como borrador lo que parezca un evento. Lo llama el cron diario
@@ -170,17 +170,6 @@ async function archivarImagen(admin: SupabaseClient, negocioId: string, nombre: 
 }
 
 // Correo a cada miembro aprobado: "tienes N eventos para revisar".
-// El email vive en auth.users; solo el cliente admin lo lee.
 async function avisarMiembros(admin: SupabaseClient, negocio: NegocioBuzon, cuantos: number) {
-  const { data: miembros } = await admin
-    .from("negocios_miembros")
-    .select("perfil_id")
-    .eq("negocio_id", negocio.id)
-    .eq("estado", "aprobado");
-  for (const m of miembros ?? []) {
-    const { data } = await admin.auth.admin.getUserById(m.perfil_id as string);
-    const para = data?.user?.email;
-    if (!para) continue;
-    await enviarCorreo({ para, ...correoBorradoresNuevos(negocio, cuantos) });
-  }
+  await enviarCorreos(await emailsDeNegocio(admin, negocio.id), correoBorradoresNuevos(negocio, cuantos));
 }

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { urlSitio } from "@/lib/sitio";
 import type { EstadoRegistro } from "@/lib/actions/auth-estado";
 import {
   normalizarEmail,
@@ -117,6 +118,9 @@ export async function registrarUsuario(
         username: campos.username,
         es_de_jaen,
       },
+      // El enlace de confirmación aterriza en /auth/callback, que canjea
+      // el código, manda el correo de bienvenida y lleva a la portada.
+      emailRedirectTo: `${urlSitio()}/auth/callback?siguiente=%2F&bienvenida=1`,
     },
   });
 

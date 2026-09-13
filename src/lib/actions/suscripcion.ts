@@ -2,8 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
-import { negocioSuscrito } from "@/lib/suscripcion";
+import { negocioSuscrito, type NegocioSuscrito } from "@/lib/suscripcion";
+import { createClient } from "@/lib/supabase/server";
+import { enviarCorreo, correoCancelacionProgramada, correoSuscripcionReanudada } from "@/lib/email";
 
 // Gestión de la suscripción del plan Destacado con página propia
 // (/panel/[slug]/suscripcion) en vez del portal de Stripe. Todo pasa
@@ -14,18 +17,36 @@ function volver(slug: string, tipo: "ok" | "error", mensaje: string): never {
   redirect(`/panel/${slug}/suscripcion?${tipo}=${encodeURIComponent(mensaje)}`);
 }
 
+function finPeriodo(sub: Stripe.Subscription) {
+  const item = sub.items.data[0];
+  return item ? new Date(item.current_period_end * 1000).toISOString() : null;
+}
+
+// Confirmación por correo a quien acaba de tocar la suscripción (el
+// usuario de la sesión, que negocioSuscrito ya ha comprobado que es
+// miembro aprobado).
+async function confirmarPorCorreo(negocio: NegocioSuscrito, correo: (n: NegocioSuscrito) => { asunto: string; html: string; texto: string }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.email) await enviarCorreo({ para: user.email, ...correo(negocio) });
+}
+
 /** Cancela al final del periodo pagado: sigue Destacado hasta entonces. */
 export async function cancelarSuscripcion(formData: FormData) {
   const slug = String(formData.get("slug_negocio") ?? "");
   const negocio = await negocioSuscrito(slug);
   if (!negocio.stripe_subscription_id) volver(slug, "error", "No hay ninguna suscripción activa.");
 
+  let sub: Stripe.Subscription;
   try {
-    await stripe().subscriptions.update(negocio.stripe_subscription_id, { cancel_at_period_end: true });
+    sub = await stripe().subscriptions.update(negocio.stripe_subscription_id, { cancel_at_period_end: true });
   } catch (err) {
     console.error("[stripe] cancelar:", err instanceof Error ? err.message : err);
     volver(slug, "error", "No hemos podido cancelar la suscripción. Inténtalo en un momento.");
   }
+  await confirmarPorCorreo(negocio, (n) => correoCancelacionProgramada({ negocio: n, finPeriodo: finPeriodo(sub) }));
   revalidatePath(`/panel/${slug}`);
   volver(slug, "ok", "Suscripción cancelada. Sigues Destacado hasta el final del periodo pagado.");
 }
@@ -36,12 +57,14 @@ export async function reanudarSuscripcion(formData: FormData) {
   const negocio = await negocioSuscrito(slug);
   if (!negocio.stripe_subscription_id) volver(slug, "error", "No hay ninguna suscripción.");
 
+  let sub: Stripe.Subscription;
   try {
-    await stripe().subscriptions.update(negocio.stripe_subscription_id, { cancel_at_period_end: false });
+    sub = await stripe().subscriptions.update(negocio.stripe_subscription_id, { cancel_at_period_end: false });
   } catch (err) {
     console.error("[stripe] reanudar:", err instanceof Error ? err.message : err);
     volver(slug, "error", "No hemos podido reanudar la suscripción.");
   }
+  await confirmarPorCorreo(negocio, (n) => correoSuscripcionReanudada({ negocio: n, finPeriodo: finPeriodo(sub) }));
   revalidatePath(`/panel/${slug}`);
   volver(slug, "ok", "Suscripción reanudada: se renovará con normalidad.");
 }
