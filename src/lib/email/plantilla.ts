@@ -1,7 +1,8 @@
 // Plantilla base de todos los correos transaccionales. Tablas y estilos
 // en línea: es lo único que respetan Gmail, Outlook y el correo de
-// Apple. Sin imágenes remotas (Gmail las bloquea hasta que el usuario
-// las acepta) ni CSS externo. Misma paleta que la web (globals.css).
+// Apple. Sin CSS externo; la única imagen es el logo del banner
+// (public/images/logo-email.png, PNG porque SVG no lo pintan), servido
+// desde NEXT_PUBLIC_SITE_URL. Misma paleta que la web (globals.css).
 
 import { urlSitio } from "@/lib/sitio";
 
@@ -129,10 +130,16 @@ ${o.detalles
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${COLOR.fondo}">
 <tr><td align="center" style="padding:32px 16px">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px">
-    <tr><td style="padding:0 8px 18px">
-      <a href="${sitio}" style="font-family:${FUENTE};font-size:13px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${COLOR.acento};text-decoration:none">Jaén Guía</a>
+    <tr><td style="background:${COLOR.tinta};border-radius:18px 18px 0 0;padding:18px 28px">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td style="padding-right:14px;vertical-align:middle"><a href="${sitio}" style="text-decoration:none"><img src="${sitio}/images/logo-email.png" width="56" height="44" alt="" style="display:block;border:0;width:56px;height:44px"></a></td>
+        <td style="vertical-align:middle">
+          <a href="${sitio}" style="display:block;font-family:${FUENTE};font-size:20px;font-weight:700;letter-spacing:.01em;color:#ffffff;text-decoration:none;line-height:1.2">Jaén Guía</a>
+          <span style="display:block;font-family:${FUENTE};font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9d2a8;line-height:1.4">Bares, planes y eventos de Jaén</span>
+        </td>
+      </tr></table>
     </td></tr>
-    <tr><td style="background:${COLOR.tarjeta};border:1px solid ${COLOR.borde};border-radius:18px;padding:36px 32px">
+    <tr><td style="background:${COLOR.tarjeta};border:1px solid ${COLOR.borde};border-top:0;border-radius:0 0 18px 18px;padding:32px 32px 30px">
       <h1 style="margin:0 0 20px;font-family:${FUENTE};font-size:24px;line-height:1.25;font-weight:700;color:${COLOR.tinta}">${escapar(o.titulo)}</h1>
       ${o.parrafos.map(p).join("\n      ")}
       ${detalles}
@@ -141,7 +148,7 @@ ${o.detalles
     </td></tr>
     <tr><td style="padding:22px 8px 0;font-family:${FUENTE};font-size:12px;line-height:1.6;color:${COLOR.suave}">
       ${escapar(motivo)}<br>
-      Jaén Guía · Bares, restaurantes y planes de Jaén · <a href="mailto:${EMAIL_CONTACTO}" style="color:${COLOR.suave}">${EMAIL_CONTACTO}</a> · <a href="${sitio}" style="color:${COLOR.suave}">${sitio.replace(/^https?:\/\//, "")}</a>
+      Jaén Guía · <a href="mailto:${EMAIL_CONTACTO}" style="color:${COLOR.suave}">${EMAIL_CONTACTO}</a> · <a href="${sitio}" style="color:${COLOR.suave}">${sitio.replace(/^https?:\/\//, "")}</a>
     </td></tr>
   </table>
 </td></tr>
