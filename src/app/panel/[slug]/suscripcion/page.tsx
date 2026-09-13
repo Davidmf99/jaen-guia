@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Download, Star } from "lucide-react";
+import { ArrowLeft, CreditCard, Download, Star } from "lucide-react";
 import CancelarSuscripcion from "@/components/panel/CancelarSuscripcion";
-import CambiarTarjeta from "@/components/panel/CambiarTarjeta";
+import { abrirPortalTarjeta } from "@/lib/actions/suscripcion";
 import { negocioSuscrito, resumenSuscripcion } from "@/lib/suscripcion";
 
 export const metadata: Metadata = {
@@ -30,14 +30,14 @@ const ESTADOS: Partial<Record<string, string>> = {
   incomplete: "Incompleta",
 };
 
-// Gestión del plan Destacado sin salir de Jaén Guía: estado, próximo
-// cobro, tarjeta, facturas, cancelar/reanudar. Sustituye al portal de
-// Stripe (misma información, misma API por debajo).
+// Gestión del plan Destacado desde Jaén Guía: estado, próximo cobro,
+// tarjeta, facturas, cancelar/reanudar. Solo el cambio de tarjeta sale
+// al portal de Stripe (con Managed Payments es el único sitio donde se
+// puede; ver actions/suscripcion.ts) y vuelve aquí.
 export default async function SuscripcionPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { ok, error } = await searchParams;
   const negocio = await negocioSuscrito(slug);
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null;
 
   const resumen = await resumenSuscripcion(negocio);
   if (!resumen) redirect(`/panel/${slug}?error=${encodeURIComponent("Este negocio no tiene ninguna suscripción.")}`);
@@ -105,7 +105,19 @@ export default async function SuscripcionPage({ params, searchParams }: PageProp
         </dl>
 
         <div className="mt-6 flex flex-wrap items-start gap-3 border-t border-oliva-100 pt-6">
-          {publishableKey && <CambiarTarjeta slugNegocio={slug} publishableKey={publishableKey} />}
+          <form action={abrirPortalTarjeta}>
+            <input type="hidden" name="slug_negocio" value={slug} />
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-oliva-200 px-5 text-base font-semibold text-oliva-900 hover:border-oliva-900 transition-colors"
+            >
+              <CreditCard size={18} aria-hidden="true" />
+              Cambiar tarjeta
+            </button>
+            <p className="mt-2 max-w-xs text-sm text-oliva-600">
+              Se abre en Stripe: pulsa el lápiz junto a la tarjeta de la suscripción y vuelves aquí.
+            </p>
+          </form>
           <CancelarSuscripcion slugNegocio={slug} cancelaAlFinal={resumen.cancelaAlFinal} finPeriodo={fin} />
         </div>
       </section>
