@@ -117,15 +117,30 @@ export async function iniciarPagoDestacado(formData: FormData) {
 
   const { data: negocio } = await supabase
     .from("negocios")
-    .select("id, slug, nombre, plan, stripe_customer_id, miembros:negocios_miembros!inner(perfil_id, estado)")
+    .select("id, slug, nombre, plan, stripe_customer_id, stripe_subscription_id, miembros:negocios_miembros!inner(perfil_id, estado)")
     .eq("id", negocioId)
     .eq("miembros.perfil_id", user.id)
     .eq("miembros.estado", "aprobado")
-    .maybeSingle<{ id: string; slug: string; nombre: string; plan: string; stripe_customer_id: string | null }>();
+    .maybeSingle<{
+      id: string;
+      slug: string;
+      nombre: string;
+      plan: string;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+    }>();
 
   if (!negocio) volverAlPanel(slugNegocio, "error", "No gestionas ese negocio.");
   const slug = negocio.slug;
   if (negocio.plan === "destacado") volverAlPanel(slug, "error", "Este negocio ya es Destacado.");
+  // Plan gratis pero con suscripción guardada = impagada (el webhook la
+  // conserva para restaurar el plan si se paga). Otro checkout crearía
+  // una segunda suscripción sobre el mismo cliente.
+  if (negocio.stripe_subscription_id) {
+    redirect(
+      `/panel/${slug}/suscripcion?error=${encodeURIComponent("Tienes una factura pendiente. Ponte al día o cambia de tarjeta aquí.")}`
+    );
+  }
 
   const precio = process.env.STRIPE_PRICE_DESTACADO;
   if (!precio) volverAlPanel(slug, "error", "Los pagos no están configurados todavía.");

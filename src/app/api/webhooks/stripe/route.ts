@@ -14,6 +14,9 @@ import { finEvento } from "@/lib/eventos";
 //     5xx haría que Stripe reintentase.
 //
 // Local: stripe listen --forward-to localhost:3000/api/webhooks/stripe
+// Eventos que hay que dar de alta en el endpoint (test y live):
+//   checkout.session.completed, customer.subscription.deleted,
+//   customer.subscription.updated
 
 export const runtime = "nodejs";
 
@@ -59,12 +62,9 @@ export async function POST(req: Request) {
       case "customer.subscription.deleted":
         await bajaDestacado(admin, evento.data.object.id, "suscripción cancelada");
         break;
-      case "invoice.payment_failed": {
-        const sub = evento.data.object.parent?.subscription_details?.subscription;
-        const subId = typeof sub === "string" ? sub : sub?.id;
-        if (subId) await bajaDestacado(admin, subId, "pago fallido");
+      case "customer.subscription.updated":
+        await suscripcionActualizada(admin, evento.data.object);
         break;
-      }
       default:
         break;
     }
@@ -105,24 +105,63 @@ async function sesionCompletada(admin: Admin, sesion: Stripe.Checkout.Session) {
     if (error) throw error;
     if (!data) throw new Error(`negocio ${negocioId} no existe`);
 
-    // Los eventos que ya tenía publicados pasan a promocionados también.
-    const { data: eventos } = await admin
-      .from("eventos")
-      .select("id, fecha_inicio, fecha_fin")
-      .eq("negocio_id", negocioId)
-      .eq("estado", "publicado")
-      .is("promocionado_hasta", null)
-      .gte("fecha_inicio", new Date().toISOString())
-      .returns<{ id: string; fecha_inicio: string; fecha_fin: string | null }[]>();
-    for (const e of eventos ?? []) {
-      await admin.from("eventos").update({ promocionado_hasta: finEvento(e.fecha_inicio, e.fecha_fin) }).eq("id", e.id);
-    }
-
+    await promocionarEventosPendientes(admin, negocioId);
     revalidarNegocio(data.slug);
     return;
   }
 
   console.warn("[stripe] checkout.session.completed sin tipo conocido", sesion.id, tipo);
+}
+
+/**
+ * Impago y recuperación. El primer rechazo de tarjeta NO baja el plan:
+ * Stripe reintenta durante días (Smart Retries) y mientras tanto la
+ * suscripción está en past_due, que ya se enseña como "Pago pendiente"
+ * en /panel/[slug]/suscripcion. Solo cuando Stripe se rinde y la marca
+ * unpaid (ajuste de la cuenta: "marcar como impagada"; si el ajuste es
+ * "cancelar", llega customer.subscription.deleted) se pasa a gratis.
+ *
+ * Se conserva stripe_subscription_id para que, si el dueño paga la
+ * factura pendiente y la suscripción vuelve a active, se le restaure el
+ * plan sin pasar otra vez por el checkout.
+ */
+async function suscripcionActualizada(admin: Admin, sub: Stripe.Subscription) {
+  if (sub.status === "unpaid") {
+    await bajaDestacado(admin, sub.id, "impago tras los reintentos", { conservarSuscripcion: true });
+    return;
+  }
+
+  if (sub.status === "active") {
+    const { data, error } = await admin
+      .from("negocios")
+      .update({ plan: "destacado" })
+      .eq("stripe_subscription_id", sub.id)
+      .neq("plan", "destacado")
+      .select("id, slug")
+      .maybeSingle<{ id: string; slug: string }>();
+    if (error) throw error;
+    // Lo normal: ya era destacado y el update no toca nada (renovación
+    // mensual, cambio de tarjeta, cancel_at_period_end…).
+    if (!data) return;
+    console.info("[stripe] negocio", data.slug, "vuelve a destacado: suscripción activa de nuevo");
+    await promocionarEventosPendientes(admin, data.id);
+    revalidarNegocio(data.slug);
+  }
+}
+
+/** Los eventos publicados y futuros del negocio que aún no lo estén pasan a promocionados. */
+async function promocionarEventosPendientes(admin: Admin, negocioId: string) {
+  const { data: eventos } = await admin
+    .from("eventos")
+    .select("id, fecha_inicio, fecha_fin")
+    .eq("negocio_id", negocioId)
+    .eq("estado", "publicado")
+    .is("promocionado_hasta", null)
+    .gte("fecha_inicio", new Date().toISOString())
+    .returns<{ id: string; fecha_inicio: string; fecha_fin: string | null }[]>();
+  for (const e of eventos ?? []) {
+    await admin.from("eventos").update({ promocionado_hasta: finEvento(e.fecha_inicio, e.fecha_fin) }).eq("id", e.id);
+  }
 }
 
 async function promocionarEvento(admin: Admin, eventoId: string) {
@@ -145,10 +184,15 @@ async function promocionarEvento(admin: Admin, eventoId: string) {
   if (evento.negocio?.slug) revalidarNegocio(evento.negocio.slug);
 }
 
-async function bajaDestacado(admin: Admin, subscriptionId: string, motivo: string) {
+async function bajaDestacado(
+  admin: Admin,
+  subscriptionId: string,
+  motivo: string,
+  { conservarSuscripcion = false } = {}
+) {
   const { data, error } = await admin
     .from("negocios")
-    .update({ plan: "gratis", stripe_subscription_id: null })
+    .update(conservarSuscripcion ? { plan: "gratis" } : { plan: "gratis", stripe_subscription_id: null })
     .eq("stripe_subscription_id", subscriptionId)
     .select("slug")
     .maybeSingle<{ slug: string }>();
