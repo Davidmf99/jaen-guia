@@ -336,6 +336,48 @@ export function finEvento(fechaInicio: string, fechaFin: string | null) {
   return new Date(medianocheMadrid(new Date(fechaInicio), 1)).toISOString();
 }
 
+// ---------------------------------------------------------------------
+// Eventos promocionados
+// ---------------------------------------------------------------------
+
+/**
+ * Ventana de visibilidad de un evento promocionado antes de celebrarse.
+ *
+ * `promocionado_hasta` guarda el fin del evento, no el fin de la ventana:
+ * un concierto de dentro de tres meses pagado hoy no "gasta" su promoción
+ * en semanas en las que nadie mira esa fecha. Se promociona de verdad
+ * cuando entra en estos días.
+ */
+export const DIAS_PROMOCION = 14;
+
+/** Instante hasta el que se mira `fecha_inicio` para promocionar: ahora + DIAS_PROMOCION. */
+export function limiteVentanaPromocion(ahora = new Date()) {
+  return new Date(ahora.getTime() + DIAS_PROMOCION * 86_400_000).toISOString();
+}
+
+/**
+ * Si un evento va arriba y con etiqueta en los listados públicos: tiene
+ * promoción vigente y empieza dentro de la ventana (o ya ha empezado).
+ */
+export function estaPromocionado(
+  promocionadoHasta: string | null,
+  fechaInicio: string,
+  ahora = new Date()
+) {
+  if (!promocionadoHasta) return false;
+  const iso = ahora.toISOString();
+  return promocionadoHasta > iso && fechaInicio < limiteVentanaPromocion(ahora);
+}
+
+/**
+ * Promocionados primero, respetando el orden por fecha que ya trae la
+ * lista. Para listados sin límite; con límite en SQL el promocionado
+ * puede no venir en el resultado y hay que traerlo aparte.
+ */
+export function promocionadosPrimero<T extends { promocionado: boolean }>(lista: T[]): T[] {
+  return [...lista.filter((e) => e.promocionado), ...lista.filter((e) => !e.promocionado)];
+}
+
 /** Medianoche en Jaén del día de un `<input type="date">`, en ISO UTC. */
 export function isoDiaCompletoJaen(valorFecha: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(valorFecha)) return null;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Store } from "lucide-react";
+import { MapPin, Sparkles, Store } from "lucide-react";
 import ImagenEvento from "./ImagenEvento";
 import type { Categoria } from "@/types";
 
@@ -21,6 +21,8 @@ export interface EventoTarjeta {
   fuente: { nombre: string; sitio: string } | null;
   categoriaNombre: string | null;
   categoriaTipo: Categoria["tipo"] | null;
+  /** Ya calculado en el servidor con estaPromocionado(): etiqueta y va arriba. */
+  promocionado: boolean;
 }
 
 interface Props {
@@ -45,19 +47,39 @@ export default function EventoCard({ evento }: Props) {
           categoriaTipo={evento.categoriaTipo}
         />
 
-        {evento.categoriaNombre && (
-          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
-            {evento.categoriaNombre}
-          </span>
-        )}
+        {/* Una sola fila flex, como en NegocioCard: con dos absolutos
+            independientes "Promocionado · Categoría" no sabe cuánto ocupa
+            "Gratis" y se le montaba encima. La cápsula de la izquierda
+            recorta la categoría (nunca la etiqueta pagada) con lo que queda. */}
+        <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          {(evento.promocionado || evento.categoriaNombre) ? (
+            <span className="flex min-w-0 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
+              {/* Es lo que se ha pagado, así que se dice; y con la misma
+                  forma que el "Destacado" de los negocios, para que se lea
+                  como una sola cosa. */}
+              {evento.promocionado && (
+                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold text-terracota-600">
+                  <Sparkles size={14} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
+                  Promocionado
+                  {evento.categoriaNombre && <span className="mx-0.5 text-oliva-300" aria-hidden="true">·</span>}
+                </span>
+              )}
+              {evento.categoriaNombre && (
+                <span className="min-w-0 truncate">{evento.categoriaNombre}</span>
+              )}
+            </span>
+          ) : (
+            <span />
+          )}
 
-        {/* terracota-600 y no 500: con texto blanco encima, el 500 se
-            quedaba en 3.61:1 y este chip va en negrita y pequeño. */}
-        {evento.es_gratis && (
-          <span className="absolute right-3 top-3 rounded-full bg-terracota-600 px-2.5 py-1 text-sm font-semibold text-white">
-            Gratis
-          </span>
-        )}
+          {/* terracota-600 y no 500: con texto blanco encima, el 500 se
+              quedaba en 3.61:1 y este chip va en negrita y pequeño. */}
+          {evento.es_gratis && (
+            <span className="shrink-0 rounded-full bg-terracota-600 px-2.5 py-1 text-sm font-semibold text-white">
+              Gratis
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-4">

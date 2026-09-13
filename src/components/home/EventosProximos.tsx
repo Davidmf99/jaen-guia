@@ -5,9 +5,11 @@ import AgendaCortes, { type GrupoAgenda } from "./AgendaCortes";
 import type { EventoTarjeta } from "./EventoCard";
 import {
   creditoFuente,
+  estaPromocionado,
   etiquetaFecha,
   filtroEventosEnRango,
   filtroEventosVigentes,
+  limiteVentanaPromocion,
   rangoTemporal,
   type CorteTemporal,
 } from "@/lib/eventos";
@@ -29,6 +31,7 @@ interface EventoRow {
   origen: string;
   fuente_nombre: string | null;
   fuente_url: string | null;
+  promocionado_hasta: string | null;
   categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string } | null;
 }
@@ -38,40 +41,63 @@ interface EventoRow {
  * ninguno. Solo 'publicado': los borradores ya los esconde la RLS, pero
  * 'cancelado' y 'aplazado' sí son públicos y no pintan nada en una lista
  * de "qué hago hoy" sin una etiqueta que explique su estado.
+ *
+ * Los promocionados van primero. Como hay LIMIT, no basta con reordenar
+ * en memoria: un concierto pagado para dentro de diez días no entraría en
+ * los seis primeros por fecha. Se traen aparte y se rellena con el resto.
  */
 async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
   const supabase = await createClient();
   const capitalId = await getMunicipioCapitalId();
+  const ahora = new Date();
 
-  let consulta = supabase
-    .from("eventos")
-    .select(
-      "id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
-    )
-    .eq("estado", "publicado");
+  const consulta = () => {
+    let q = supabase
+      .from("eventos")
+      .select(
+        "id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, promocionado_hasta, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
+      )
+      .eq("estado", "publicado");
 
-  // Fase capital: los eventos de la provincia (los que trae la Agenda
-  // Cultural de Andalucía de Martos, Villacarrillo, Bailén…) se quedan
-  // guardados, pero aquí no se listan todavía.
-  consulta = consulta.eq("municipio_id", capitalId);
+    // Fase capital: los eventos de la provincia (los que trae la Agenda
+    // Cultural de Andalucía de Martos, Villacarrillo, Bailén…) se quedan
+    // guardados, pero aquí no se listan todavía.
+    q = q.eq("municipio_id", capitalId);
 
-  if (corte) {
-    // Un corte ya es un subconjunto de los vigentes: rangoTemporal() nunca
-    // devuelve un `desde` anterior a ahora.
-    const { desde, hasta } = rangoTemporal(corte);
-    consulta = consulta.lt("fecha_inicio", hasta).or(filtroEventosEnRango(desde));
-  } else {
-    consulta = consulta.or(filtroEventosVigentes());
+    if (corte) {
+      // Un corte ya es un subconjunto de los vigentes: rangoTemporal() nunca
+      // devuelve un `desde` anterior a ahora.
+      const { desde, hasta } = rangoTemporal(corte, ahora);
+      q = q.lt("fecha_inicio", hasta).or(filtroEventosEnRango(desde));
+    } else {
+      q = q.or(filtroEventosVigentes());
+    }
+
+    return q;
+  };
+  const ordenada = (q: ReturnType<typeof consulta>) =>
+    q.order("fecha_inicio", { ascending: true }).limit(MAX_EVENTOS).returns<EventoRow[]>();
+
+  const [promocionados, resto] = await Promise.all([
+    ordenada(
+      consulta()
+        .gt("promocionado_hasta", ahora.toISOString())
+        .lt("fecha_inicio", limiteVentanaPromocion(ahora))
+    ),
+    ordenada(consulta()),
+  ]);
+
+  if (promocionados.error || resto.error) return [];
+
+  const vistos = new Set<string>();
+  const filas: EventoRow[] = [];
+  for (const evento of [...promocionados.data, ...resto.data]) {
+    if (vistos.has(evento.id)) continue;
+    vistos.add(evento.id);
+    filas.push(evento);
   }
 
-  const { data, error } = await consulta
-    .order("fecha_inicio", { ascending: true })
-    .limit(MAX_EVENTOS)
-    .returns<EventoRow[]>();
-
-  if (error || !data) return [];
-
-  return data.map((evento) => ({
+  return filas.slice(0, MAX_EVENTOS).map((evento) => ({
     id: evento.id,
     slug: evento.slug,
     titulo: evento.titulo,
@@ -79,7 +105,8 @@ async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
     fechaTexto: etiquetaFecha(
       evento.fecha_inicio,
       evento.fecha_fin,
-      evento.es_todo_el_dia
+      evento.es_todo_el_dia,
+      ahora
     ),
     es_todo_el_dia: evento.es_todo_el_dia,
     es_gratis: evento.es_gratis,
@@ -96,6 +123,7 @@ async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
     fuente: creditoFuente(evento.fuente_nombre, evento.fuente_url),
     categoriaNombre: evento.categoria?.nombre ?? null,
     categoriaTipo: evento.categoria?.tipo ?? null,
+    promocionado: estaPromocionado(evento.promocionado_hasta, evento.fecha_inicio, ahora),
   }));
 }
 

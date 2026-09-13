@@ -8,9 +8,11 @@ import { getCategorias } from "@/lib/categorias";
 import { getMunicipioCapitalId } from "@/lib/municipios";
 import {
   creditoFuente,
+  estaPromocionado,
   etiquetaFecha,
   filtroEventosEnRango,
   filtroEventosVigentes,
+  promocionadosPrimero,
   rangoTemporal,
   type CorteTemporal,
 } from "@/lib/eventos";
@@ -38,6 +40,7 @@ interface EventoRow {
   origen: string;
   fuente_nombre: string | null;
   fuente_url: string | null;
+  promocionado_hasta: string | null;
   categoria: { nombre: string; slug: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string } | null;
 }
@@ -67,7 +70,7 @@ async function getEventos(
   let consulta = supabase
     .from("eventos")
     .select(
-      `id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, categoria:${relacion}(nombre, slug, tipo), negocio:negocios(nombre)`
+      `id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, promocionado_hasta, categoria:${relacion}(nombre, slug, tipo), negocio:negocios(nombre)`
     )
     .eq("estado", "publicado");
 
@@ -93,7 +96,10 @@ async function getEventos(
 
   if (error || !data) return [];
 
-  return data.map((evento) => ({
+  // Sin LIMIT en la consulta, así que basta con reordenar aquí: los
+  // promocionados arriba, y dentro de cada bloque el orden por fecha.
+  const ahora = new Date();
+  return promocionadosPrimero(data.map((evento) => ({
     id: evento.id,
     slug: evento.slug,
     titulo: evento.titulo,
@@ -101,7 +107,8 @@ async function getEventos(
     fechaTexto: etiquetaFecha(
       evento.fecha_inicio,
       evento.fecha_fin,
-      evento.es_todo_el_dia
+      evento.es_todo_el_dia,
+      ahora
     ),
     es_todo_el_dia: evento.es_todo_el_dia,
     es_gratis: evento.es_gratis,
@@ -112,7 +119,8 @@ async function getEventos(
     fuente: creditoFuente(evento.fuente_nombre, evento.fuente_url),
     categoriaNombre: evento.categoria?.nombre ?? null,
     categoriaTipo: evento.categoria?.tipo ?? null,
-  }));
+    promocionado: estaPromocionado(evento.promocionado_hasta, evento.fecha_inicio, ahora),
+  })));
 }
 
 interface PageProps {
