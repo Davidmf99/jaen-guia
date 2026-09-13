@@ -33,7 +33,7 @@ function limpiarUrl(url: string) {
 
 async function obtener(): Promise<EventoImportado[]> {
   const respuesta = await fetch(URL_FEED, {
-    headers: { "User-Agent": "JaenGuiaBot/1.0 (+https://jaenguia.es)" },
+    headers: { "User-Agent": "JaenGuiaBot/1.0 (+https://jaenguia.com)" },
     cache: "no-store",
   });
   if (!respuesta.ok) throw new Error(`RSS aytojaen: HTTP ${respuesta.status}`);

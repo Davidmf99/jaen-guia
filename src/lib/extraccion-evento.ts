@@ -106,7 +106,7 @@ export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new 
     headers: {
       Authorization: `Bearer ${clave}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "https://jaenguia.es",
+      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "https://jaenguia.com",
       "X-Title": "Jaén Guía",
     },
     body: JSON.stringify({

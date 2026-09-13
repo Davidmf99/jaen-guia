@@ -31,7 +31,7 @@ function normalizarEnlace(href: string) {
 
 async function obtener(): Promise<EventoImportado[]> {
   const respuesta = await fetch(URL_PORTADA, {
-    headers: { "User-Agent": "JaenGuiaBot/1.0 (+https://jaenguia.es)" },
+    headers: { "User-Agent": "JaenGuiaBot/1.0 (+https://jaenguia.com)" },
     cache: "no-store",
   });
   if (!respuesta.ok) throw new Error(`enjaen: HTTP ${respuesta.status}`);
