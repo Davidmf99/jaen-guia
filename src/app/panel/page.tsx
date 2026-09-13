@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Clock, Store } from "lucide-react";
+import { CalendarDays, ChevronRight, Clock, MessageCircle, Star, Store } from "lucide-react";
 import EstadoVacio from "@/components/home/EstadoVacio";
 import { createClient } from "@/lib/supabase/server";
+import { filtroEventosVigentes } from "@/lib/eventos";
 
 export const metadata: Metadata = {
   title: "Mis negocios · Jaén Guía",
@@ -20,12 +21,19 @@ interface Membresia {
     nombre: string;
     direccion: string | null;
     activo: boolean;
+    plan: string;
   } | null;
 }
 
+interface Resumen {
+  eventos: number;
+  borradores: number;
+}
+
 // Un perfil puede gestionar varios negocios (negocios_miembros,
-// migración 0011): Panaceite son dos locales con la misma dueña. Con
-// uno solo aprobado y nada pendiente se salta directamente a editarlo.
+// migración 0011): Panaceite son dos locales con la misma dueña. Aunque
+// solo haya uno, se enseña la lista: así el dueño ve siempre "Mis
+// negocios" como punto de partida y no aterriza de golpe en el editor.
 export default async function PanelPage() {
   const supabase = await createClient();
   const {
@@ -36,7 +44,7 @@ export default async function PanelPage() {
 
   const { data: membresias } = await supabase
     .from("negocios_miembros")
-    .select("estado, rol, created_at, negocio:negocios(id, slug, nombre, direccion, activo)")
+    .select("estado, rol, created_at, negocio:negocios(id, slug, nombre, direccion, activo, plan)")
     .eq("perfil_id", user.id)
     .order("created_at", { ascending: false })
     .returns<Membresia[]>();
@@ -46,8 +54,30 @@ export default async function PanelPage() {
   const pendientes = todas.filter((m) => m.estado === "pendiente");
   const rechazadas = todas.filter((m) => m.estado === "rechazado");
 
-  if (aprobadas.length === 1 && pendientes.length === 0 && rechazadas.length === 0) {
-    redirect(`/panel/${aprobadas[0].negocio!.slug}`);
+  // Eventos vigentes y borradores pendientes por negocio, para que la
+  // lista diga qué toca hacer en cada local sin entrar.
+  const resumen = new Map<string, Resumen>();
+  const idsAprobados = aprobadas.map((m) => m.negocio!.id);
+  if (idsAprobados.length > 0) {
+    const [{ data: vigentes }, { data: borradores }] = await Promise.all([
+      supabase
+        .from("eventos")
+        .select("negocio_id")
+        .in("negocio_id", idsAprobados)
+        .eq("estado", "publicado")
+        .or(filtroEventosVigentes())
+        .returns<{ negocio_id: string }[]>(),
+      supabase
+        .from("eventos")
+        .select("negocio_id")
+        .in("negocio_id", idsAprobados)
+        .eq("estado", "borrador")
+        .in("origen", ["whatsapp", "facebook", "instagram"])
+        .returns<{ negocio_id: string }[]>(),
+    ]);
+    for (const id of idsAprobados) resumen.set(id, { eventos: 0, borradores: 0 });
+    for (const e of vigentes ?? []) resumen.get(e.negocio_id)!.eventos++;
+    for (const b of borradores ?? []) resumen.get(b.negocio_id)!.borradores++;
   }
 
   return (
@@ -92,29 +122,52 @@ export default async function PanelPage() {
           {aprobadas.length > 0 && (
             <section>
               <ul className="space-y-3">
-                {aprobadas.map((m) => (
-                  <li key={m.negocio!.id}>
-                    <Link
-                      href={`/panel/${m.negocio!.slug}`}
-                      className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-sans text-lg font-bold text-oliva-900">
-                          {m.negocio!.nombre}
-                        </p>
-                        {m.negocio!.direccion && (
-                          <p className="truncate text-oliva-600">{m.negocio!.direccion}</p>
-                        )}
-                        {!m.negocio!.activo && (
-                          <p className="mt-1 text-sm font-semibold text-terracota-600">
-                            Pendiente de publicar
+                {aprobadas.map((m) => {
+                  const n = m.negocio!;
+                  const r = resumen.get(n.id) ?? { eventos: 0, borradores: 0 };
+                  const destacado = n.plan === "destacado";
+                  return (
+                    <li key={n.id}>
+                      <Link
+                        href={`/panel/${n.slug}`}
+                        className={`flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow ${
+                          destacado ? "ring-2 ring-terracota-500/60" : ""
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-sans text-lg font-bold text-oliva-900">{n.nombre}</p>
+                            <span
+                              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold ${
+                                destacado ? "bg-terracota-500 text-white" : "bg-oliva-50 text-oliva-700"
+                              }`}
+                            >
+                              {destacado && <Star size={12} aria-hidden="true" className="fill-white" />}
+                              {destacado ? "Destacado" : "Gratis"}
+                            </span>
+                          </div>
+                          {n.direccion && <p className="truncate text-oliva-600">{n.direccion}</p>}
+                          {!n.activo && (
+                            <p className="mt-1 text-sm font-semibold text-terracota-600">Pendiente de publicar</p>
+                          )}
+                          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-oliva-700">
+                            <span className="inline-flex items-center gap-1.5">
+                              <CalendarDays size={15} aria-hidden="true" className="text-oliva-500" />
+                              {r.eventos === 1 ? "1 evento vigente" : `${r.eventos} eventos vigentes`}
+                            </span>
+                            {r.borradores > 0 && (
+                              <span className="inline-flex items-center gap-1.5 font-semibold text-terracota-600">
+                                <MessageCircle size={15} aria-hidden="true" />
+                                {r.borradores === 1 ? "1 borrador por revisar" : `${r.borradores} borradores por revisar`}
+                              </span>
+                            )}
                           </p>
-                        )}
-                      </div>
-                      <ChevronRight size={20} className="shrink-0 text-oliva-500" aria-hidden="true" />
-                    </Link>
-                  </li>
-                ))}
+                        </div>
+                        <ChevronRight size={20} className="shrink-0 text-oliva-500" aria-hidden="true" />
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
