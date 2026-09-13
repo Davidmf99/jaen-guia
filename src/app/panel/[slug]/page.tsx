@@ -55,6 +55,7 @@ interface NegocioPanel {
   email: string | null;
   instagram: string | null;
   plan: string;
+  stripe_customer_id: string | null;
   facebook: string | null;
   miembros: { estado: string }[];
 }
@@ -81,7 +82,7 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
   const { data: negocio } = await supabase
     .from("negocios")
     .select(
-      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, facebook, plan, miembros:negocios_miembros!inner(estado)"
+      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, facebook, plan, stripe_customer_id, miembros:negocios_miembros!inner(estado)"
     )
     .eq("slug", slugParam)
     .eq("miembros.perfil_id", user.id)
@@ -538,6 +539,7 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
           negocioId={negocio.id}
           slugNegocio={negocio.slug}
           plan={negocio.plan}
+          stripeCustomerId={negocio.stripe_customer_id}
           disponible={stripeConfigurado()}
         />
 

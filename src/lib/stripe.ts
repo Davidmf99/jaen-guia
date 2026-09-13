@@ -16,7 +16,7 @@ export function stripe() {
 }
 
 export const PRECIO_EVENTO_PROMOCIONADO = "5 €";
-export const PRECIO_PLAN_DESTACADO = "19 €/mes";
+export const PRECIO_PLAN_DESTACADO = "14,99 €/mes";
 
 /** Ventana de visibilidad de un evento promocionado antes de celebrarse. */
 export const DIAS_PROMOCION = 14;
@@ -24,6 +24,7 @@ export const DIAS_PROMOCION = 14;
 export function stripeConfigurado() {
   return Boolean(
     process.env.STRIPE_SECRET_KEY &&
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY &&
       process.env.STRIPE_PRICE_EVENTO_PROMOCIONADO &&
       process.env.STRIPE_PRICE_DESTACADO
   );

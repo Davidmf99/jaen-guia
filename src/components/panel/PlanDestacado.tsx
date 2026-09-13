@@ -1,4 +1,5 @@
-import { Star } from "lucide-react";
+import { Star, Settings2 } from "lucide-react";
+import Link from "next/link";
 import { iniciarPagoDestacado } from "@/lib/actions/pagos";
 import { PRECIO_PLAN_DESTACADO } from "@/lib/stripe";
 
@@ -6,13 +7,17 @@ interface Props {
   negocioId: string;
   slugNegocio: string;
   plan: string;
+  /** Cliente de Stripe: con él se abre el portal (cancelar, tarjeta, facturas). */
+  stripeCustomerId: string | null;
   /** false si faltan las claves de Stripe: no se enseña el botón. */
   disponible: boolean;
 }
 
 // Bloque del panel para pasar al plan Destacado (suscripción). Si el
-// negocio ya lo tiene, solo se dice; la baja se gestiona desde Stripe.
-export default function PlanDestacado({ negocioId, slugNegocio, plan, disponible }: Props) {
+// negocio ya lo tiene, enlace a /panel/[slug]/suscripcion para
+// cancelar, cambiar tarjeta o ver facturas. Un Destacado editorial (sin
+// customer) no tiene nada que gestionar.
+export default function PlanDestacado({ negocioId, slugNegocio, plan, stripeCustomerId, disponible }: Props) {
   if (plan === "destacado") {
     return (
       <section className="mt-10 rounded-2xl border border-oliva-100 bg-oliva-50 p-6">
@@ -22,8 +27,21 @@ export default function PlanDestacado({ negocioId, slugNegocio, plan, disponible
         </p>
         <p className="mt-1 text-base text-oliva-700">
           Sale arriba en la portada y en su categoría, y tus eventos se promocionan solos al publicarlos.
-          Para cambiar el plan o darte de baja, escríbenos.
         </p>
+        {stripeCustomerId && disponible && (
+          <div className="mt-4">
+            <Link
+              href={`/panel/${slugNegocio}/suscripcion`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-oliva-200 bg-white px-5 text-base font-semibold text-oliva-900 hover:border-oliva-900 transition-colors"
+            >
+              <Settings2 size={18} aria-hidden="true" />
+              Gestionar suscripción
+            </Link>
+            <p className="mt-2 text-sm text-oliva-600">
+              Cambiar la tarjeta, descargar facturas o darte de baja (sigues Destacado hasta el final del mes pagado).
+            </p>
+          </div>
+        )}
       </section>
     );
   }
