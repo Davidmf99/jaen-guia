@@ -116,6 +116,26 @@ export default function MenuCuenta({ nombre, tieneNegocios = false, esAdmin = fa
             Solicitudes
           </Link>
         )}
+        {esAdmin && (
+          <Link
+            href="/admin/borradores"
+            onClick={() => setAbierto(false)}
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
+          >
+            <ShieldCheck size={18} aria-hidden="true" className="shrink-0" />
+            Borradores de redes
+          </Link>
+        )}
+        {esAdmin && (
+          <Link
+            href="/admin/destacados-sin-eventos"
+            onClick={() => setAbierto(false)}
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-base text-oliva-700 hover:bg-oliva-50"
+          >
+            <ShieldCheck size={18} aria-hidden="true" className="shrink-0" />
+            Destacados sin eventos
+          </Link>
+        )}
         <form action={cerrarSesion}>
           <button
             type="submit"

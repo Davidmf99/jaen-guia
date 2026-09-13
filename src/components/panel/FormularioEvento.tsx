@@ -12,6 +12,9 @@ interface Props {
   direccionNegocio: string | null;
   categoriaIdNegocio: string | null;
   categorias: { id: string; nombre: string }[];
+  /** Server Action que recibe el formulario. Por defecto la del dueño;
+   *  /admin pasa crearEventoComoAdmin. */
+  accion?: (formData: FormData) => Promise<void>;
 }
 
 const CAMPO =
@@ -25,6 +28,7 @@ export default function FormularioEvento({
   direccionNegocio,
   categoriaIdNegocio,
   categorias,
+  accion = crearEventoNegocio,
 }: Props) {
   // Deciden qué input de fecha se envía (date vs datetime-local) y si hay
   // precio, así que el formulario tiene que ser cliente.
@@ -34,7 +38,7 @@ export default function FormularioEvento({
   const tipoFecha = todoElDia ? "date" : "datetime-local";
 
   return (
-    <form action={crearEventoNegocio} className="space-y-4">
+    <form action={accion} className="space-y-4">
       <input type="hidden" name="negocio_id" value={negocioId} />
       <input type="hidden" name="slug_negocio" value={slugNegocio} />
 

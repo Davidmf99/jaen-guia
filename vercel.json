@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/sync-events",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/sync-social",
+      "schedule": "0 */3 * * *"
+    },
+    {
+      "path": "/api/cron/sync-publico",
+      "schedule": "30 */3 * * *"
     }
   ]
 }

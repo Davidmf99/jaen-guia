@@ -1,6 +1,7 @@
 import Link from "next/link";
 import FormularioEvento from "./FormularioEvento";
 import BorrarEvento from "./BorrarEvento";
+import PromocionarEvento from "./PromocionarEvento";
 import { fechaEvento } from "@/lib/eventos";
 
 export interface EventoPanel {
@@ -10,6 +11,7 @@ export interface EventoPanel {
   fecha_inicio: string;
   es_todo_el_dia: boolean;
   lugar_nombre: string | null;
+  promocionado_hasta: string | null;
 }
 
 interface Props {
@@ -19,12 +21,18 @@ interface Props {
     nombre: string;
     direccion: string | null;
     categoria_id: string | null;
+    plan: string;
   };
   categorias: { id: string; nombre: string }[];
   eventos: EventoPanel[];
+  /** false si faltan las claves de Stripe: sin botón de promocionar. */
+  pagosDisponibles: boolean;
 }
 
-export default function EventosNegocio({ negocio, categorias, eventos }: Props) {
+export default function EventosNegocio({ negocio, categorias, eventos, pagosDisponibles }: Props) {
+  // Con el plan Destacado los eventos ya van promocionados: sin botón.
+  const puedePromocionar = pagosDisponibles && negocio.plan !== "destacado";
+  const ahora = new Date().toISOString();
   return (
     <section id="eventos" className="mt-10 scroll-mt-24">
       <header className="mb-4">
@@ -81,7 +89,16 @@ export default function EventosNegocio({ negocio, categorias, eventos }: Props) 
                 )}
               </div>
 
-              <BorrarEvento eventoId={evento.id} titulo={evento.titulo} slugNegocio={negocio.slug} />
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                {evento.promocionado_hasta && evento.promocionado_hasta > ahora ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-terracota-500/10 px-3 py-1 text-sm font-semibold text-terracota-600">
+                    Promocionado
+                  </span>
+                ) : (
+                  puedePromocionar && <PromocionarEvento eventoId={evento.id} slugNegocio={negocio.slug} />
+                )}
+                <BorrarEvento eventoId={evento.id} titulo={evento.titulo} slugNegocio={negocio.slug} />
+              </div>
             </li>
           ))}
         </ul>

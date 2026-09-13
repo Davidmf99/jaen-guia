@@ -11,6 +11,7 @@ import { getCategoriaPorSlug } from "@/lib/categorias";
 import GridStagger from "@/components/motion/GridStagger";
 import { SERVICIOS } from "@/lib/servicios";
 import { estaAbierto } from "@/lib/horario";
+import { esNegocio, esTipoNegocio } from "@/lib/categorias";
 import type { Categoria } from "@/types";
 
 // Copy editorial por categoría (párrafo de cabecera + meta description).
@@ -76,11 +77,13 @@ interface NegocioRow {
   google_photo_name: string | null;
   google_photo_atribucion: string | null;
   horario: Record<string, string> | null;
-  categoria: { nombre: string } | null;
+  tipo_cocina: string[] | null;
+  categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   resenas: { puntuacion: number }[];
 }
 
 function aTarjeta(negocio: NegocioRow, ahora: Date) {
+  const conHorario = esNegocio(negocio);
   return {
     id: negocio.id,
     slug: negocio.slug,
@@ -91,7 +94,8 @@ function aTarjeta(negocio: NegocioRow, ahora: Date) {
     google_photo_atribucion: negocio.google_photo_atribucion,
     categoriaNombre: negocio.categoria?.nombre,
     puntuacion_media: calcularPuntuacionMedia(negocio.resenas),
-    abiertoAhora: estaAbierto(negocio.horario, ahora),
+    // undefined = la tarjeta no pinta nada (naturaleza).
+    abiertoAhora: conHorario ? estaAbierto(negocio.horario, ahora) : undefined,
   };
 }
 
@@ -104,7 +108,7 @@ async function getNegocios(
   const supabase = await createClient();
   const ahora = new Date();
   const SELECT =
-    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, horario, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
+    "id, nombre, slug, descripcion_corta, imagen_portada, google_photo_name, google_photo_atribucion, horario, tipo_cocina, categoria:categorias!inner(nombre, tipo), resenas(puntuacion)";
 
   // "Abierto ahora" se decide en JS (el horario es jsonb con texto tipo
   // "12:00–24:00"), y "mejor valorados" ordena por un valor calculado a
@@ -228,7 +232,9 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
   const serviciosSeleccionados = (sp.servicios ?? "")
     .split(",")
     .filter((clave) => chipsServicio.some((s) => s.clave === clave));
-  const abiertoAhora = sp.abierto === "1";
+  // En naturaleza no hay chip de "abierto ahora" y el parámetro se ignora.
+  const filtraApertura = esTipoNegocio(info.tipo);
+  const abiertoAhora = filtraApertura && sp.abierto === "1";
   const filtros: Filtros = { zona: zonaSeleccionada, servicios: serviciosSeleccionados, abiertoAhora };
   const hayFiltros = abiertoAhora || serviciosSeleccionados.length > 0 || Boolean(zonaSeleccionada);
 
@@ -362,6 +368,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
           {/* Chips de filtro: enlaces, no formulario, para que funcionen
               sin JS y cada combinación tenga URL propia (compartible). */}
           <nav aria-label="Filtros" className="-mt-4 mb-10 flex flex-wrap items-center gap-2">
+            {filtraApertura && (
             <Link
               href={hrefConParams({ abierto: abiertoAhora ? "" : "1", pagina: 1 })}
               aria-pressed={abiertoAhora}
@@ -377,6 +384,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
               />
               Abierto ahora
             </Link>
+            )}
             {chipsServicio.map(({ clave, etiqueta, icono: Icono }) => {
               const activo = serviciosSeleccionados.includes(clave);
               return (

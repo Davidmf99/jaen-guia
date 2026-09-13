@@ -326,6 +326,16 @@ export function isoDesdeHoraJaen(valorLocal: string): string | null {
   return Number.isNaN(fecha.getTime()) ? null : fecha.toISOString();
 }
 
+/**
+ * Instante en que un evento deja de estar vigente: fecha_fin si la hay,
+ * o la medianoche de Jaén que cierra el día de fecha_inicio. Es hasta
+ * cuándo dura la promoción de un evento.
+ */
+export function finEvento(fechaInicio: string, fechaFin: string | null) {
+  if (fechaFin) return new Date(fechaFin).toISOString();
+  return new Date(medianocheMadrid(new Date(fechaInicio), 1)).toISOString();
+}
+
 /** Medianoche en Jaén del día de un `<input type="date">`, en ISO UTC. */
 export function isoDiaCompletoJaen(valorFecha: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(valorFecha)) return null;

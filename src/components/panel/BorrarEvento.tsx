@@ -9,6 +9,8 @@ interface Props {
   titulo: string;
   /** Para volver a /panel/[slug] tras borrar. */
   slugNegocio: string;
+  /** "Borrar" por defecto; "Descartar" para los borradores de WhatsApp. */
+  etiqueta?: string;
 }
 
 // Borrado en dos pasos. Antes era una papelera de 16 px dentro de un
@@ -23,7 +25,7 @@ interface Props {
 // Sin JavaScript el componente no llega a hidratarse y el botón hace lo
 // que hacía antes: enviar el formulario y borrar. Se pierde el paso de
 // confirmación, no la función.
-export default function BorrarEvento({ eventoId, titulo, slugNegocio }: Props) {
+export default function BorrarEvento({ eventoId, titulo, slugNegocio, etiqueta = "Borrar" }: Props) {
   const [confirmando, setConfirmando] = useState(false);
   const cancelarRef = useRef<HTMLButtonElement>(null);
   const abrirRef = useRef<HTMLButtonElement>(null);
@@ -44,7 +46,7 @@ export default function BorrarEvento({ eventoId, titulo, slugNegocio }: Props) {
       >
         <Trash2 size={18} aria-hidden="true" />
         <span>
-          Borrar<span className="sr-only"> «{titulo}»</span>
+          {etiqueta}<span className="sr-only"> «{titulo}»</span>
         </span>
       </button>
     );
@@ -62,7 +64,7 @@ export default function BorrarEvento({ eventoId, titulo, slugNegocio }: Props) {
           type="submit"
           className="inline-flex min-h-11 items-center rounded-full bg-terracota-600 px-4 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
         >
-          Sí, borrar<span className="sr-only"> «{titulo}»</span>
+          Sí, {etiqueta.toLowerCase()}<span className="sr-only"> «{titulo}»</span>
         </button>
       </form>
       <button

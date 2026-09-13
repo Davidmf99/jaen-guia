@@ -4,6 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ArrowLeft } from "lucide-react";
 import EventosNegocio, { type EventoPanel } from "@/components/panel/EventosNegocio";
+import BorradoresWhatsApp, { type BorradorPanel } from "@/components/panel/BorradoresWhatsApp";
+import ConexionFacebook, { type ConexionPanel } from "@/components/panel/ConexionFacebook";
+import { facebookConfigurado } from "@/lib/facebook";
+import PlanDestacado from "@/components/panel/PlanDestacado";
+import { stripeConfigurado } from "@/lib/stripe";
 import CampoPortada from "@/components/panel/CampoPortada";
 import { createClient } from "@/lib/supabase/server";
 import { filtroEventosVigentes } from "@/lib/eventos";
@@ -49,6 +54,8 @@ interface NegocioPanel {
   servicios: string[];
   email: string | null;
   instagram: string | null;
+  plan: string;
+  facebook: string | null;
   miembros: { estado: string }[];
 }
 
@@ -74,7 +81,7 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
   const { data: negocio } = await supabase
     .from("negocios")
     .select(
-      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, miembros:negocios_miembros!inner(estado)"
+      "id, slug, nombre, descripcion, direccion, categoria_id, telefono, web, horario, imagen_portada, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, facebook, plan, miembros:negocios_miembros!inner(estado)"
     )
     .eq("slug", slugParam)
     .eq("miembros.perfil_id", user.id)
@@ -107,12 +114,33 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
 
   const { data: eventos } = await supabase
     .from("eventos")
-    .select("id, slug, titulo, fecha_inicio, es_todo_el_dia, lugar_nombre")
+    .select("id, slug, titulo, fecha_inicio, es_todo_el_dia, lugar_nombre, promocionado_hasta")
     .eq("negocio_id", negocio.id)
     .eq("origen", "negocio")
     .or(filtroEventosVigentes())
     .order("fecha_inicio", { ascending: true })
     .returns<EventoPanel[]>();
+
+  // Borradores que llegaron por WhatsApp, Facebook o Instagram
+  // (migraciones 0013/0014): esperan a que el dueño los confirme. La
+  // RLS "Dueño ve sus eventos en borrador" es la que los deja ver.
+  const { data: borradores } = await supabase
+    .from("eventos")
+    .select("id, titulo, descripcion, imagen, fecha_inicio, es_todo_el_dia, es_gratis, precio_texto, origen, fuente_url, created_at")
+    .eq("negocio_id", negocio.id)
+    .in("origen", ["whatsapp", "facebook", "instagram"])
+    .eq("estado", "borrador")
+    .order("created_at", { ascending: false })
+    .returns<BorradorPanel[]>();
+
+  // Columnas explícitas: page_token_cifrado tiene el SELECT revocado
+  // para authenticated y un "*" fallaría entero.
+  const { data: conexion } = await supabase
+    .from("negocios_conexiones")
+    .select("page_id, page_nombre, ig_username, ultima_sync, ultimo_error")
+    .eq("negocio_id", negocio.id)
+    .eq("plataforma", "facebook")
+    .maybeSingle<ConexionPanel>();
 
   async function actualizarNegocio(formData: FormData) {
     "use server";
@@ -147,6 +175,8 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
           .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
           .replace(/^@/, "")
           .replace(/\/.*$/, "") || null,
+      // URL o nombre de la página; lo normaliza el cron de redes públicas.
+      facebook: String(formData.get("facebook") ?? "").trim() || null,
       rango_precio: RANGOS_PRECIO.some((r) => r.valor === formData.get("rango_precio"))
         ? String(formData.get("rango_precio"))
         : null,
@@ -214,6 +244,8 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
     }
     volver("ok", "Cambios guardados.");
   }
+
+  const numeroWhatsApp = process.env.NEXT_PUBLIC_WHATSAPP_NUMERO ?? null;
 
   return (
     <>
@@ -337,6 +369,38 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
                 type="text"
                 placeholder="@tunegocio"
                 defaultValue={negocio.instagram ?? ""}
+                aria-describedby="instagram-ayuda"
+                className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
+              />
+              {/* Las stories no tienen API: el tip empuja a post/reel y
+                  deja WhatsApp como red de seguridad. */}
+              <p id="instagram-ayuda" className="mt-1 text-sm text-oliva-600">
+                💡 Si publicas tu evento como foto o reel (no solo en una story), aparece
+                automáticamente en Jaén Guía. Si alguna vez solo lo subes a una story,
+                reenvíanos el cartel{" "}
+                {numeroWhatsApp ? (
+                  <>
+                    a{" "}
+                    <a href={`https://wa.me/${numeroWhatsApp.replace(/\D/g, "")}`} className="font-medium text-terracota-600 hover:underline">
+                      +{numeroWhatsApp.replace(/\D/g, "")}
+                    </a>
+                  </>
+                ) : (
+                  "por WhatsApp"
+                )}{" "}
+                y lo publicamos igual.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="facebook" className="block text-base font-medium text-oliva-700">
+                Facebook
+              </label>
+              <input
+                id="facebook"
+                name="facebook"
+                type="text"
+                placeholder="facebook.com/tunegocio"
+                defaultValue={negocio.facebook ?? ""}
                 className="mt-1 w-full rounded-xl border border-oliva-100 px-3 py-2.5 text-base outline-none focus:border-oliva-400"
               />
             </div>
@@ -457,10 +521,31 @@ export default async function PanelNegocioPage({ params, searchParams }: PagePro
           </button>
         </form>
 
+        <ConexionFacebook
+          negocioId={negocio.id}
+          slugNegocio={negocio.slug}
+          conexion={conexion ?? null}
+          disponible={facebookConfigurado()}
+        />
+
+        <BorradoresWhatsApp
+          slugNegocio={negocio.slug}
+          borradores={borradores ?? []}
+          numeroWhatsApp={numeroWhatsApp}
+        />
+
+        <PlanDestacado
+          negocioId={negocio.id}
+          slugNegocio={negocio.slug}
+          plan={negocio.plan}
+          disponible={stripeConfigurado()}
+        />
+
         <EventosNegocio
           negocio={negocio}
           categorias={categorias ?? []}
           eventos={eventos ?? []}
+          pagosDisponibles={stripeConfigurado()}
         />
       </main>
     </>

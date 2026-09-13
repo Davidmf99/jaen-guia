@@ -18,6 +18,8 @@ import GestionarNegocio from "@/components/negocio/GestionarNegocio";
 import { gradientePara } from "@/lib/gradiente";
 import { SERVICIOS, etiquetaRangoPrecio } from "@/lib/servicios";
 import { horarioOrdenado, estaAbierto, proximoCambio } from "@/lib/horario";
+import { esNegocio as clasificarNegocio, muestraHorario } from "@/lib/categorias";
+import type { Categoria } from "@/types";
 
 function iniciales(nombre: string) {
   return nombre
@@ -64,7 +66,7 @@ interface NegocioFichaRow {
   servicios: string[];
   email: string | null;
   instagram: string | null;
-  categoria: { nombre: string } | null;
+  categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
   resenas: ResenaRow[];
 }
 
@@ -75,7 +77,7 @@ const getNegocio = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("negocios")
     .select(
-      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, categoria:categorias(nombre), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
+      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, categoria:categorias(nombre, tipo), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
     )
     .eq("slug", slug)
     .single()
@@ -122,9 +124,11 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
   const servicios = SERVICIOS.filter((s) => negocio.servicios.includes(s.clave));
   const etiquetaPrecio = etiquetaRangoPrecio(negocio.rango_precio);
   const tieneDetalles = Boolean(etiquetaPrecio) || negocio.tipo_cocina.length > 0;
-  const horario = horarioOrdenado(negocio.horario);
-  const abierto = estaAbierto(negocio.horario);
-  const cambio = proximoCambio(negocio.horario);
+  // Un parque o un monumento no está "abierto" ni tiene dueño que lo reclame.
+  const esNegocio = clasificarNegocio(negocio);
+  const horario = muestraHorario(negocio.categoria?.tipo) ? horarioOrdenado(negocio.horario) : [];
+  const abierto = esNegocio ? estaAbierto(negocio.horario) : null;
+  const cambio = esNegocio ? proximoCambio(negocio.horario) : null;
 
   async function crearResena(formData: FormData) {
     "use server";
@@ -533,15 +537,17 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
 
           </div>
 
-          <div className="mt-16">
-            <GestionarNegocio
-              negocioId={negocioId}
-              slug={slug}
-              nombre={negocio.nombre}
-              usuarioId={user?.id ?? null}
-              aviso={solicitud}
-            />
-          </div>
+          {esNegocio && (
+            <div className="mt-16">
+              <GestionarNegocio
+                negocioId={negocioId}
+                slug={slug}
+                nombre={negocio.nombre}
+                usuarioId={user?.id ?? null}
+                aviso={solicitud}
+              />
+            </div>
+          )}
         </div>
       </main>
     </>

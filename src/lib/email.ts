@@ -102,3 +102,20 @@ export function correoSolicitudRechazada(negocio: { nombre: string }) {
     texto: `No hemos podido confirmar que gestionas ${negocio.nombre}. Si crees que es un error, escríbenos: ${url}`,
   };
 }
+
+export function correoBorradoresNuevos(negocio: { nombre: string; slug: string }, cuantos: number) {
+  const url = `${urlSitio()}/panel/${negocio.slug}#borradores`;
+  const n = cuantos === 1 ? "1 evento nuevo" : `${cuantos} eventos nuevos`;
+  return {
+    asunto: `${n} para revisar en ${negocio.nombre}`,
+    html: plantilla(
+      `Hemos visto ${n} en tu Facebook o Instagram`,
+      [
+        `Lo hemos leído y lo tienes preparado en el panel de <strong>${escapar(negocio.nombre)}</strong>. Revisa el título y la hora y publícalo con un toque.`,
+        "Nada sale en la agenda de Jaén Guía sin que lo confirmes tú.",
+      ],
+      { texto: "Revisar y publicar", url }
+    ),
+    texto: `Hemos visto ${n} en tu Facebook o Instagram. Revísalo y publícalo en: ${url}`,
+  };
+}
