@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import CheckoutEmbebido from "@/components/panel/CheckoutEmbebido";
+import FormularioPago from "@/components/panel/FormularioPago";
 import { createClient } from "@/lib/supabase/server";
-import { PRECIO_EVENTO_PROMOCIONADO, PRECIO_PLAN_DESTACADO, stripe, urlSitio } from "@/lib/stripe";
+import { stripe, urlSitio } from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Pago · Jaén Guía",
@@ -16,8 +16,8 @@ interface PageProps {
   searchParams: Promise<{ sesion?: string }>;
 }
 
-// Página de pago con el Checkout de Stripe embebido. La sesión la creó
-// una acción de lib/actions/pagos.ts; aquí se recupera su client_secret tras
+// Página de pago con formulario propio. La sesión la creó una acción
+// de lib/actions/pagos.ts; aquí solo se recupera su client_secret tras
 // comprobar que el usuario gestiona el negocio y que la sesión es de
 // ese negocio (client_reference_id) y sigue abierta.
 export default async function PagoPage({ params, searchParams }: PageProps) {
@@ -78,16 +78,15 @@ export default async function PagoPage({ params, searchParams }: PageProps) {
           {esSuscripcion ? "Plan Destacado" : "Promocionar evento"}
         </h1>
         <p className="mt-2 text-oliva-700">
-          Para <strong>{negocio.nombre}</strong>. El cobro lo hace Stripe; tu tarjeta no pasa por Jaén Guía.
+          Para <strong>{negocio.nombre}</strong>. El pago lo procesa Stripe; tu tarjeta no pasa por Jaén Guía.
         </p>
       </header>
-      <CheckoutEmbebido
-        sesionId={sesion.id}
+      <FormularioPago
         clientSecret={sesion.client_secret}
         publishableKey={publishableKey}
+        email={user.email ?? ""}
         negocioNombre={negocio.nombre}
         esSuscripcion={esSuscripcion}
-        precio={esSuscripcion ? PRECIO_PLAN_DESTACADO : PRECIO_EVENTO_PROMOCIONADO}
         urlVuelta={urlVuelta}
       />
     </main>

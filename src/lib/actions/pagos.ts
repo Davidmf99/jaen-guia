@@ -5,37 +5,33 @@ import type Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { stripe, urlSitio } from "@/lib/stripe";
 
-// Checkout de Stripe para los dos productos de pago, embebido en
-// /panel/[slug]/pago (ui_mode "embedded_page"): el dueño no sale de Jaén
-// Guía, pero el formulario lo pinta Stripe. Aquí solo se crea la sesión;
-// el que cambia la base de datos es el webhook (/api/webhooks/stripe)
-// cuando Stripe confirma el cobro. Por eso las dos acciones verifican
-// que el usuario gestiona el negocio (RLS aparte) pero no tocan eventos
-// ni negocios.
+// Checkout de Stripe para los dos productos de pago con formulario
+// propio en /panel/[slug]/pago (ui_mode elements): el dueño no sale de
+// Jaén Guía. Aquí solo se crea la sesión; el que cambia la base de datos es
+// el webhook (/api/webhooks/stripe) cuando Stripe confirma el cobro.
+// Por eso las dos acciones verifican que el usuario gestiona el
+// negocio (RLS aparte) pero no tocan eventos ni negocios.
 
 function volverAlPanel(slug: string, tipo: "ok" | "error", mensaje: string): never {
   redirect(`/panel/${slug}?${tipo}=${encodeURIComponent(mensaje)}#eventos`);
 }
 
-// Común a las dos sesiones. Managed Payments: Stripe (vía Link) es el
-// vendedor de cara al bar. Emite la factura con IVA, lo declara y lo
-// liquida, y a Jaén Guía le llega el neto. Es lo que permite cobrar
-// sin alta de IVA propia mientras esto sean cuatro bares. A cambio:
-//   · Solo Checkout alojado o embebido; el formulario propio con
-//     ui_mode "elements" no está permitido.
-//   · Nada de automatic_tax, tax_id_collection, payment_method_types,
-//     invoice_creation ni customer_update: los controla Stripe y la
-//     API rechaza la sesión si van.
-//   · En el extracto del bar sale "LINK.COM* JAEN GUIA".
-//   · El código fiscal de los productos (txcd_10000000) tiene que ser
-//     de los admitidos, y el servicio, automático (sin trabajo manual).
-// El cobro se confirma en la página (onComplete) sin redirección; la
-// return_url solo se usa si el banco obliga a salir (3DS por redirección).
+// Común a las dos sesiones:
+//   · ui_mode "elements": formulario nuestro (FormularioPago.tsx).
+//   · Managed Payments apagado: con él Stripe es el vendedor y solo
+//     permite su Checkout. Aquí vende Jaén Guía: Stripe Tax calcula el
+//     IVA (precios con IVA incluido, el total no cambia) y lo declaras tú.
+//   · NIF y dirección: el formulario los manda con updateTaxIdInfo /
+//     updateBillingAddress, así que van habilitados en la sesión.
 const SESION_COMUN = {
-  ui_mode: "embedded_page",
-  managed_payments: { enabled: true },
-  redirect_on_completion: "if_required",
-  locale: "es",
+  ui_mode: "elements",
+  // Solo tarjeta: Klarna/Amazon Pay para 14,99 € al mes desconciertan
+  // más que ayudan. Bizum o SEPA, si algún bar lo pide.
+  payment_method_types: ["card"],
+  managed_payments: { enabled: false },
+  automatic_tax: { enabled: true },
+  tax_id_collection: { enabled: true },
+  billing_address_collection: "auto",
 } satisfies Partial<Stripe.Checkout.SessionCreateParams>;
 
 // Un fallo de Stripe (clave mala, precio sin tax_code, red) vuelve al
@@ -98,11 +94,15 @@ export async function iniciarPagoEventoPromocionado(formData: FormData) {
   const sesion = await crearSesion(slug, {
     mode: "payment",
     ...SESION_COMUN,
+    // Pago único: factura automática para el bar (en suscripción ya la
+    // genera cada cobro).
+    invoice_creation: { enabled: true },
     line_items: [{ price: precio, quantity: 1 }],
     customer_email: user.email ?? undefined,
     client_reference_id: evento.negocio.id,
     metadata: { tipo: "evento_promocionado", evento_id: evento.id, negocio_id: evento.negocio.id },
     return_url: `${urlSitio()}/panel/${slug}?ok=${encodeURIComponent("Pago recibido: tu evento ya está promocionado.")}#eventos`,
+    locale: "es",
   });
 
   redirect(`/panel/${slug}/pago?sesion=${sesion.id}`);
@@ -150,11 +150,12 @@ export async function iniciarPagoDestacado(formData: FormData) {
     mode: "subscription",
     ...SESION_COMUN,
     line_items: [{ price: precio, quantity: 1 }],
-    // Si ya pagó antes reutilizamos su customer (Managed Payments le
-    // actualiza nombre y dirección solo); si no, Stripe lo crea con
-    // este email.
+    // Si ya pagó antes reutilizamos su customer; si no, Stripe lo crea
+    // con este email.
+    // Con un customer existente, Stripe exige permiso para guardarle el
+    // nombre (NIF) y la dirección (IVA) que mande el formulario.
     ...(negocio.stripe_customer_id
-      ? { customer: negocio.stripe_customer_id }
+      ? { customer: negocio.stripe_customer_id, customer_update: { name: "auto", address: "auto" } }
       : { customer_email: user.email ?? undefined }),
     client_reference_id: negocio.id,
     metadata,
@@ -162,6 +163,7 @@ export async function iniciarPagoDestacado(formData: FormData) {
     // la sesión de checkout.
     subscription_data: { metadata },
     return_url: `${urlSitio()}/panel/${slug}?ok=${encodeURIComponent("Suscripción activada: tu negocio ya es Destacado.")}`,
+    locale: "es",
   });
 
   redirect(`/panel/${slug}/pago?sesion=${sesion.id}`);

@@ -183,11 +183,8 @@ export default async function ParaNegociosPage() {
             </p>
             <ul className="mt-3 space-y-1.5 text-white/85">
               <li>· Tu ficha en la portada y arriba en su categoría, con insignia.</li>
-              {/* Sin "revisamos tu Instagram a mano": Managed Payments solo
-                  admite servicios automáticos, sin trabajo manual en la oferta.
-                  Se sigue haciendo como cortesía (admin/destacados-sin-eventos),
-                  pero no se vende. */}
               <li>· Todos tus eventos promocionados, sin pagar uno a uno.</li>
+              <li>· Revisamos tu Instagram a mano cada semana, stories incluidas.</li>
             </ul>
             <p className="mt-4 text-sm text-white/60">Cancelas cuando quieras desde tu panel.</p>
           </article>

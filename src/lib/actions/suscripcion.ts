@@ -2,14 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { stripe, urlSitio } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { negocioSuscrito } from "@/lib/suscripcion";
 
 // Gestión de la suscripción del plan Destacado con página propia
-// (/panel/[slug]/suscripcion): cancelar y reanudar van por la API con
-// la suscripción guardada en negocios (0016); cambiar la tarjeta abre el
-// portal de Stripe (ver abrirPortalTarjeta). El paso a 'gratis' cuando
-// vence lo sigue haciendo el webhook.
+// (/panel/[slug]/suscripcion) en vez del portal de Stripe. Todo pasa
+// por la API con la suscripción guardada en negocios (0016); el paso a
+// 'gratis' cuando vence lo sigue haciendo el webhook.
 
 function volver(slug: string, tipo: "ok" | "error", mensaje: string): never {
   redirect(`/panel/${slug}/suscripcion?${tipo}=${encodeURIComponent(mensaje)}`);
@@ -47,33 +46,42 @@ export async function reanudarSuscripcion(formData: FormData) {
   volver(slug, "ok", "Suscripción reanudada: se renovará con normalidad.");
 }
 
-/**
- * Cambiar la tarjeta: portal de Stripe y vuelta. Con Managed Payments
- * la API no deja tocar default_payment_method de la suscripción
- * ("cannot be updated for Subscriptions created by Checkout Sessions
- * with Managed Payments enabled"), y el flujo payment_method_update del
- * portal solo cambia el predeterminado del cliente, que la renovación
- * ignora: probado con un test clock, siguió cobrando la tarjeta vieja.
- * Lo único que funciona es el portal completo, donde el lápiz junto a
- * la tarjeta de la suscripción sí la cambia (y cobra la nueva al mes
- * siguiente, también probado).
- */
-export async function abrirPortalTarjeta(formData: FormData) {
-  const slug = String(formData.get("slug_negocio") ?? "");
+/** SetupIntent para guardar una tarjeta nueva desde nuestro formulario. */
+export async function iniciarCambioTarjeta(slug: string): Promise<{ clientSecret: string } | { error: string }> {
   const negocio = await negocioSuscrito(slug);
-  if (!negocio.stripe_customer_id) volver(slug, "error", "Este negocio no tiene cliente de pago.");
-
-  let url: string;
+  if (!negocio.stripe_customer_id) return { error: "Este negocio no tiene cliente de pago." };
   try {
-    const sesion = await stripe().billingPortal.sessions.create({
+    const intent = await stripe().setupIntents.create({
       customer: negocio.stripe_customer_id,
-      return_url: `${urlSitio()}/panel/${slug}/suscripcion`,
-      locale: "es",
+      payment_method_types: ["card"],
+      usage: "off_session",
+      metadata: { negocio_id: negocio.id },
     });
-    url = sesion.url;
+    if (!intent.client_secret) return { error: "Stripe no devolvió la sesión." };
+    return { clientSecret: intent.client_secret };
   } catch (err) {
-    console.error("[stripe] portal:", err instanceof Error ? err.message : err);
-    volver(slug, "error", "No hemos podido abrir el cambio de tarjeta. Inténtalo en un momento.");
+    console.error("[stripe] setup:", err instanceof Error ? err.message : err);
+    return { error: "No hemos podido iniciar el cambio de tarjeta." };
   }
-  redirect(url);
+}
+
+/** Tras confirmar el SetupIntent: la tarjeta nueva pasa a cobrar la suscripción. */
+export async function aplicarTarjeta(slug: string, paymentMethodId: string): Promise<{ ok: true } | { error: string }> {
+  const negocio = await negocioSuscrito(slug);
+  if (!negocio.stripe_customer_id || !negocio.stripe_subscription_id) return { error: "No hay suscripción que actualizar." };
+  try {
+    const api = stripe();
+    // Comprobar que el método pertenece a este cliente antes de usarlo.
+    const pm = await api.paymentMethods.retrieve(paymentMethodId);
+    if (pm.customer !== negocio.stripe_customer_id) return { error: "Tarjeta no válida." };
+    await Promise.all([
+      api.subscriptions.update(negocio.stripe_subscription_id, { default_payment_method: paymentMethodId }),
+      api.customers.update(negocio.stripe_customer_id, { invoice_settings: { default_payment_method: paymentMethodId } }),
+    ]);
+  } catch (err) {
+    console.error("[stripe] aplicar tarjeta:", err instanceof Error ? err.message : err);
+    return { error: "No hemos podido guardar la tarjeta." };
+  }
+  revalidatePath(`/panel/${slug}/suscripcion`);
+  return { ok: true };
 }
