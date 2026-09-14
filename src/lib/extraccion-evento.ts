@@ -123,10 +123,11 @@ export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new 
   const cuerpoBase = {
     model: process.env.OPENROUTER_MODELO || MODELO_POR_DEFECTO,
     // La salida son ~200 tokens. En OpenRouter el razonamiento cuenta
-    // dentro de max_tokens, de ahí el margen; el free tier de Groq
-    // limita a 1.000 tokens de salida por minuto y rechaza de entrada
-    // cualquier petición que pida más.
-    max_tokens: esOpenRouter() ? 2048 : 900,
+    // dentro de max_tokens, de ahí el margen. El free tier de Groq
+    // limita a 1.000 tokens de salida por minuto y descuenta max_tokens
+    // de cada petición, no lo generado: cuanto más bajo, más carteles
+    // por minuto.
+    max_tokens: esOpenRouter() ? 2048 : 400,
     // El sistema no cambia entre llamadas: OpenRouter lo cachea en los
     // modelos de Anthropic. La fecha va en el mensaje de usuario
     // justamente para no invalidar la caché.
@@ -223,8 +224,10 @@ async function pedir(cuerpo: unknown, intento = 0): Promise<{ status: number; js
     body: JSON.stringify(cuerpo),
   });
   const json = (await res.json().catch(() => ({}))) as RespuestaChat;
-  if (res.status === 429 && intento < 2) {
-    const espera = Math.min(Number(res.headers.get("retry-after")) || 10, 30);
+  // 429 = cuota; 503 = proveedor saturado (Groq lo devuelve a menudo en
+  // el free tier). En ambos casos esperar y volver a intentar, dos veces.
+  if ((res.status === 429 || res.status === 503) && intento < 2) {
+    const espera = Math.min(Number(res.headers.get("retry-after")) || 8 * (intento + 1), 30);
     await new Promise((r) => setTimeout(r, espera * 1000));
     return pedir(cuerpo, intento + 1);
   }

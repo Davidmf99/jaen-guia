@@ -135,7 +135,9 @@ export async function mediaPublicoInstagramApify(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      directUrls: usuarios.map((u) => `https://www.instagram.com/${u}/`),
+      // Dos negocios pueden compartir cuenta (dos locales de la misma
+      // casa); Apify rechaza URLs repetidas.
+      directUrls: [...new Set(usuarios.map((u) => u.toLowerCase()))].map((u) => `https://www.instagram.com/${u}/`),
       resultsType: "posts",
       resultsLimit: limitePorUsuario,
       onlyPostsNewerThan: desde.toISOString().slice(0, 10),
@@ -155,7 +157,13 @@ export async function mediaPublicoInstagramApify(
     const usuario = usuarioDe(it);
     if (!usuario) continue;
     if (it.error) {
-      noAccesibles.set(usuario, it.errorDescription ?? it.error);
+      // "Empty or private data" también sale cuando la cuenta es pública
+      // pero no tiene posts más nuevos que la fecha pedida: no se
+      // desactiva por eso. Solo por restringida, privada o inexistente.
+      const motivo = `${it.error} ${it.errorDescription ?? ""}`;
+      if (/restricted|private profile|not found|does not exist|not_found|no such user/i.test(motivo)) {
+        noAccesibles.set(usuario, (it.errorDescription ?? it.error).trim());
+      }
       continue;
     }
     const id = it.id ?? it.shortCode;
