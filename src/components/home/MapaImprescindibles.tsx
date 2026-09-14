@@ -11,7 +11,7 @@ import type { PuntoMapa } from "./MapaLeaflet";
 const MapaLeaflet = dynamic(() => import("./MapaLeaflet"), {
   ssr: false,
   loading: () => (
-    <div className="h-80 w-full animate-pulse rounded-2xl bg-oliva-100" />
+    <div className="h-full min-h-80 w-full animate-pulse rounded-2xl bg-oliva-100" />
   ),
 });
 
@@ -85,12 +85,12 @@ export default function MapaImprescindibles({ puntos }: { puntos: PuntoMapa[] })
   }, []);
 
   return (
-    <div ref={hueco}>
+    <div ref={hueco} className="h-full min-h-80">
       {cerca ? (
         <MapaLeaflet puntos={puntos} />
       ) : (
         <div
-          className="h-80 w-full rounded-2xl bg-oliva-100"
+          className="h-full min-h-80 w-full rounded-2xl bg-oliva-100"
           role="status"
           aria-label="El mapa se carga al llegar a él"
         />

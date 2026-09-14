@@ -35,6 +35,20 @@ export interface PuntoMapa {
   lng: number;
   /** Si viene, el popup del marcador enlaza a /negocio/[slug]. */
   slug?: string;
+  /** Si viene, el marcador es un círculo con este número (la ruta de la portada). */
+  numero?: number;
+}
+
+// Marcador numerado: el mismo número que la lista de al lado, para que
+// "el 3" del mapa y "el 3" de la ruta sean lo mismo de un vistazo.
+function iconoNumerado(numero: number) {
+  return L.divIcon({
+    className: "",
+    html: `<div class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-oliva-900 text-sm font-bold text-white shadow-md">${numero}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+  });
 }
 
 interface Props {
@@ -81,8 +95,32 @@ export default function MapaLeaflet({
     else mapa.dragging.disable();
   }, [mapa, punteroFino]);
 
+  // Leaflet mide el contenedor una vez, al montar. En la portada el
+  // mapa estira a la altura de la lista de al lado (h-full en una
+  // rejilla), que se conoce después: sin esto se quedaba con las
+  // teselas de 320 px y el resto en blanco.
+  useEffect(() => {
+    if (!mapa) return;
+    const contenedor = mapa.getContainer();
+    // Con varios puntos, encuadrarlos: el centro fijo de Jaén dejaba el
+    // casco antiguo (donde están los imprescindibles) abajo del todo.
+    const encuadrar = () => {
+      mapa.invalidateSize();
+      if (puntos.length > 1) {
+        mapa.fitBounds(
+          L.latLngBounds(puntos.map((p) => [p.lat, p.lng] as [number, number])),
+          { padding: [48, 48], maxZoom: 16 }
+        );
+      }
+    };
+    const observador = new ResizeObserver(encuadrar);
+    observador.observe(contenedor);
+    encuadrar();
+    return () => observador.disconnect();
+  }, [mapa, puntos]);
+
   return (
-    <div className="h-80 w-full overflow-hidden rounded-2xl">
+    <div className="h-full min-h-80 w-full overflow-hidden rounded-2xl">
       {/* eslint-disable @typescript-eslint/no-explicit-any */}
       <MapContainer
         {...({
@@ -109,7 +147,11 @@ export default function MapaLeaflet({
           } as any)}
         />
         {puntos.map((punto) => (
-          <Marker key={punto.nombre} position={[punto.lat, punto.lng]}>
+          <Marker
+            key={punto.nombre}
+            position={[punto.lat, punto.lng]}
+            {...(punto.numero ? { icon: iconoNumerado(punto.numero) } : {})}
+          >
             <Popup>
               {punto.slug ? (
                 <Link
