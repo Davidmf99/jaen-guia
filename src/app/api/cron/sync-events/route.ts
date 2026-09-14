@@ -105,6 +105,22 @@ export async function GET(request: Request) {
 
   const ahora = new Date().toISOString();
 
+  // Las agendas no traen categoría. Se deduce del título con palabras
+  // clave hacia una de las cinco de la guía; en la duda, cultura, que es
+  // lo que suelen publicar la UJA, la Junta y EnJaén. Sirve para el
+  // color del hueco sin foto, la etiqueta de la tarjeta y el filtro.
+  const { data: categorias } = await supabase.from("categorias").select("id, slug").returns<{ id: string; slug: string }[]>();
+  const categoriaId = (slug: string) => (categorias ?? []).find((c) => c.slug === slug)?.id ?? null;
+  const REGLAS: Array<[RegExp, string]> = [
+    [/\b(ruta|senderis|marcha|excursi[oó]n|natur|parque|sierra|berrea|astron|estrellas)\b/i, "naturaleza"],
+    [/\b(cata|gastro|tapas?|degustaci[oó]n|vino|aceite|cerveza|cocina|men[uú])\b/i, "gastronomia"],
+    [/\b(mercado|mercadillo|feria|fiestas?|verbena|taller|deporte|carrera|torneo|partido|infantil|ni[nñ]os|familiar|magia|escape|juegos?)\b/i, "experiencias"],
+  ];
+  const categoriaDe = (titulo: string) => {
+    for (const [re, slug] of REGLAS) if (re.test(titulo)) return categoriaId(slug);
+    return categoriaId("cultura");
+  };
+
   async function guardar(
     evento: EventoImportado,
     fuenteNombre: string
@@ -128,6 +144,7 @@ export async function GET(request: Request) {
       estado: "publicado",
       fuente_nombre: fuenteNombre,
       fuente_url: evento.url,
+      categoria_id: categoriaDe(evento.titulo),
       // Solo si la fuente dice el municipio. Si no lo dice, se deja el
       // default de la tabla (la capital): las agendas municipales de Jaén
       // no lo repiten en cada evento.
