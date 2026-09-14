@@ -87,7 +87,7 @@ export default function MapaImprescindibles({ puntos, linea = false }: { puntos:
   return (
     <div ref={hueco} className="h-full min-h-80">
       {cerca ? (
-        <MapaLeaflet puntos={puntos} linea={linea} />
+        <MapaLeaflet puntos={puntos} linea={linea} alto="h-full" />
       ) : (
         <div
           className="h-full min-h-80 w-full rounded-2xl bg-oliva-100"

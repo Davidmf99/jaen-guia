@@ -57,6 +57,13 @@ interface Props {
   zoom?: number;
   /** Une los puntos en orden con una línea (la ruta a pie). */
   linea?: boolean;
+  /**
+   * Clase de altura del contenedor. Por defecto 320 px fijos. La portada
+   * pasa "h-full" porque su padre ya mide 520 px; con "h-full" en un
+   * padre sin altura explícita el mapa queda a 0 px y no se ve (así se
+   * rompió la ficha de negocio).
+   */
+  alto?: string;
 }
 
 // Componente de mapa genérico: quien lo use decide qué puntos mostrar
@@ -68,6 +75,7 @@ export default function MapaLeaflet({
   centro = CENTRO_JAEN,
   zoom = 13,
   linea = false,
+  alto = "h-80",
 }: Props) {
   const [mapa, setMapa] = useState<L.Map | null>(null);
 
@@ -123,7 +131,7 @@ export default function MapaLeaflet({
   }, [mapa, puntos]);
 
   return (
-    <div className="h-full min-h-80 w-full overflow-hidden rounded-2xl">
+    <div className={`${alto} w-full overflow-hidden rounded-2xl`}>
       {/* eslint-disable @typescript-eslint/no-explicit-any */}
       <MapContainer
         {...({
