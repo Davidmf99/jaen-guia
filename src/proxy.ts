@@ -5,7 +5,18 @@ import { NextResponse, type NextRequest } from "next/server";
 // @supabase/ssr para App Router). En Next.js 16 el fichero se llama
 // proxy.ts (antes middleware.ts) y la función exportada es `proxy`,
 // no `middleware` — ver node_modules/next/dist/docs/.../proxy.md.
+// Rastreadores en URLs con parámetros: 403 antes de ejecutar nada. Los
+// filtros de las categorías combinan en millones de URLs y ClaudeBot
+// hizo 221.000 peticiones en 12 h siguiéndolas (14 sept 2026). Esas
+// URLs ya van noindex/nofollow y robots las prohíbe, pero un bot tarda
+// hasta un día en releer robots.txt. Las URLs limpias no se tocan.
+const RASTREADOR = /bot|crawl|spider|slurp|fetch|scrapy|python-requests|curl\//i;
+
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.search && RASTREADOR.test(request.headers.get("user-agent") ?? "")) {
+    return new NextResponse("Las URLs con parámetros no se rastrean. Ver /robots.txt", { status: 403 });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
