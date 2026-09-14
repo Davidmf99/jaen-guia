@@ -1,5 +1,6 @@
 import { agendaAndalucia } from "./agenda-andalucia";
 import { enjaen } from "./enjaen";
+import { uja } from "./uja";
 import type { Fuente } from "./tipos";
 
 // =====================================================================
@@ -40,6 +41,6 @@ import type { Fuente } from "./tipos";
 // (que pueden estar en una ruta que el pie enlaza en relativo, ojo),
 // importar solo datos factuales (qué, cuándo, dónde) y enlazar siempre
 // al original.
-export const FUENTES: Fuente[] = [enjaen, agendaAndalucia];
+export const FUENTES: Fuente[] = [enjaen, agendaAndalucia, uja];
 
 export type { EventoImportado, Fuente } from "./tipos";

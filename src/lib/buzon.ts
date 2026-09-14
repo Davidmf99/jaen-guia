@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { extraerEvento, type EventoExtraido } from "@/lib/extraccion-evento";
 import { isoDesdeHoraJaen, isoDiaCompletoJaen } from "@/lib/eventos";
 import { municipioDeJaen, normalizarMunicipio } from "@/lib/municipios-jaen";
+import { pareceRepetido } from "@/lib/eventos-repetidos";
 
 // Tramo común de todas las entradas (WhatsApp, Facebook, Instagram):
 // guardar lo recibido en buzon_mensajes, leerlo con Claude y dejar un
@@ -306,45 +307,11 @@ async function idDeMunicipio(admin: SupabaseClient, nombre: string): Promise<str
   return (nuevo?.id as string | undefined) ?? null;
 }
 
-const palabras = (t: string) => new Set(plano(t).split(" ").filter((p) => p.length >= 4));
-
-/**
- * La huella de la base solo pilla el mismo título el mismo día. Dos
- * posts del mismo festival con títulos distintos ("San Lucas & Roll
- * 2026" y "San Lucas & Roll 2026: M-Clan, Burning...") se le escapan:
- * mismo día, mismo sitio (negocio o lugar) y la mitad de las palabras
- * en común, es el mismo evento.
- */
-async function pareceRepetido(admin: SupabaseClient, b: BorradorNuevo): Promise<boolean> {
-  const dia = b.fecha_inicio.slice(0, 10);
-  const { data } = await admin
-    .from("eventos")
-    .select("titulo, negocio_id, lugar_nombre")
-    .gte("fecha_inicio", `${dia}T00:00:00Z`)
-    .lt("fecha_inicio", `${dia}T23:59:59Z`)
-    .neq("estado", "borrador")
-    .limit(50);
-  const mias = palabras(b.titulo);
-  const contiene = (a: string, c: string) => a.length >= 6 && c.length >= 6 && (a.includes(c) || c.includes(a));
-  return (data ?? []).some((e) => {
-    const suyas = palabras(e.titulo);
-    const comunes = [...mias].filter((p) => suyas.has(p)).length;
-    if (!comunes) return false;
-    const parecido = comunes / Math.min(mias.size, suyas.size);
-    // "La Alameda" y "Auditorio Municipal La Alameda" son el mismo sitio.
-    const mismoSitio =
-      (b.negocio && e.negocio_id === b.negocio.id) ||
-      (b.lugar_nombre && e.lugar_nombre && contiene(plano(e.lugar_nombre), plano(b.lugar_nombre)));
-    // Mismo sitio y la mitad del título, o títulos casi iguales el mismo día.
-    return (mismoSitio && parecido >= 0.5) || parecido >= 0.8;
-  });
-}
-
 export async function insertarBorrador(
   admin: SupabaseClient,
   b: BorradorNuevo
 ): Promise<{ estado: "borrador"; eventoId: string } | { estado: "duplicado" } | { estado: "error"; error: string }> {
-  if (await pareceRepetido(admin, b)) return { estado: "duplicado" };
+  if (await pareceRepetido(admin, { titulo: b.titulo, fecha_inicio: b.fecha_inicio, negocio_id: b.negocio?.id ?? null, lugar_nombre: b.lugar_nombre })) return { estado: "duplicado" };
   const { data, error } = await admin
     .from("eventos")
     .insert({

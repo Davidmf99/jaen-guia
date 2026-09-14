@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
+import { pareceRepetido } from "@/lib/eventos-repetidos";
 import { FUENTES, type EventoImportado } from "@/lib/fuentes";
 import { slugImportado } from "@/lib/fuentes/tipos";
 
@@ -144,6 +145,12 @@ export async function GET(request: Request) {
     if (existente) {
       await supabase.from("eventos").update(fila).eq("id", existente.id);
       return "actualizado";
+    }
+
+    // Y si ya entró por otra vía con otras palabras (un post de Facebook
+    // del mismo acto), tampoco: mismo día y sitio, títulos parecidos.
+    if (await pareceRepetido(supabase, { titulo: fila.titulo, fecha_inicio: fila.fecha_inicio, lugar_nombre: fila.lugar_nombre })) {
+      return "descartado";
     }
 
     // ignoreDuplicates y no merge: si la huella (municipio + día +
