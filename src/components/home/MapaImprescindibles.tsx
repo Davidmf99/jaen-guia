@@ -19,7 +19,7 @@ const MapaLeaflet = dynamic(() => import("./MapaLeaflet"), {
 // aparezca, para que no se vea el hueco gris al llegar.
 const ANTICIPACION = 400;
 
-export default function MapaImprescindibles({ puntos }: { puntos: PuntoMapa[] }) {
+export default function MapaImprescindibles({ puntos, linea = false }: { puntos: PuntoMapa[]; linea?: boolean }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [cerca, setCerca] = useState(false);
 
@@ -87,7 +87,7 @@ export default function MapaImprescindibles({ puntos }: { puntos: PuntoMapa[] })
   return (
     <div ref={hueco} className="h-full min-h-80">
       {cerca ? (
-        <MapaLeaflet puntos={puntos} />
+        <MapaLeaflet puntos={puntos} linea={linea} />
       ) : (
         <div
           className="h-full min-h-80 w-full rounded-2xl bg-oliva-100"

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 
 // El icono por defecto de Leaflet referencia marker-icon-2x.png /
 // marker-shadow.png con rutas relativas que el bundler de Next no copia
@@ -55,6 +55,8 @@ interface Props {
   puntos: PuntoMapa[];
   centro?: [number, number];
   zoom?: number;
+  /** Une los puntos en orden con una línea (la ruta a pie). */
+  linea?: boolean;
 }
 
 // Componente de mapa genérico: quien lo use decide qué puntos mostrar
@@ -65,6 +67,7 @@ export default function MapaLeaflet({
   puntos,
   centro = CENTRO_JAEN,
   zoom = 13,
+  linea = false,
 }: Props) {
   const [mapa, setMapa] = useState<L.Map | null>(null);
 
@@ -146,6 +149,14 @@ export default function MapaLeaflet({
             maxZoom: 19,
           } as any)}
         />
+        {linea && puntos.length > 1 && (
+          <Polyline
+            {...({
+              positions: puntos.map((p) => [p.lat, p.lng]),
+              pathOptions: { color: "#4a5a2c", weight: 3, opacity: 0.8, dashArray: "6 8", lineCap: "round" },
+            } as any)}
+          />
+        )}
         {puntos.map((punto) => (
           <Marker
             key={punto.nombre}
