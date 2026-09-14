@@ -45,13 +45,19 @@ async function buscar(consulta: string): Promise<Perfil[]> {
   return ((await res.json()) as Perfil[]).filter((p) => p.username && !p.error);
 }
 
+// "Jaén" también es apellido: "Emilio José Jaén Antúnez" no es Bar
+// Emilio. Solo cuenta si aparece en la BIO (dirección, "Jaén capital",
+// código postal 23xxx), y la cuenta tiene que parecer un negocio: una
+// palabra de negocio en el nombre o la bio, o un mínimo de seguidores.
+const NEGOCIO = /\b(bar|restaurante|taberna|cafeter|cafe|pub|gastro|cerveceria|bodega|meson|asador|pizzer|hamburgues|cocktail|coctel|sala|tapas|reservas|horario|carta|menu)\b/;
 function puntuar(negocio: string, p: Perfil) {
   const k = claves(negocio);
   const texto = plano(`${p.username} ${p.fullName ?? ""}`).replace(/[_.]/g, " ");
   const bio = plano(p.biography ?? "");
   const coincide = k.length ? k.filter((c) => texto.includes(c)).length / k.length : 0;
-  const jaen = /jaen/.test(`${texto} ${bio}`) || /\b23\d{3}\b/.test(bio);
-  return { coincide, jaen, seguro: coincide >= 0.99 && jaen, posible: coincide >= 0.5 };
+  const jaen = /jaen/.test(bio) || /\b23\d{3}\b/.test(bio);
+  const pareceNegocio = NEGOCIO.test(`${texto} ${bio}`) || (p.followersCount ?? 0) >= 300;
+  return { coincide, jaen, seguro: coincide >= 0.99 && jaen && pareceNegocio, posible: coincide >= 0.5 };
 }
 
 const { data: negocios, error } = await admin
