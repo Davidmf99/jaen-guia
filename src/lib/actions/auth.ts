@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dentroDeLimite, ipCliente } from "@/lib/limites";
 import { urlSitio } from "@/lib/sitio";
 import type { EstadoRegistro } from "@/lib/actions/auth-estado";
 import {
@@ -97,6 +98,13 @@ export async function registrarUsuario(
   if (Object.keys(errores).length > 0) return fallar(errores);
 
   const supabase = await createClient();
+
+  // Anti-abuso: cuentas ilimitadas desde una misma conexión son el
+  // vector de reseñas/favoritos falsos. 5 altas/hora por IP corta el
+  // flood sin molestar a una familia que se registra desde la misma red.
+  if (!(await dentroDeLimite(supabase, `ip:${await ipCliente()}`, "registro", 5, "1 hour"))) {
+    return fallar({ form: "Se han creado muchas cuentas desde tu conexión. Espera un rato e inténtalo de nuevo." });
+  }
 
   const { data: usuarioExistente } = await supabase
     .from("perfiles")

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { MapPin, Phone, Globe, Clock, Star, Mail, AtSign, Euro, Tag } from "lucide-react";
 import MapaUbicacion from "@/components/negocio/MapaUbicacion";
 import { createClient } from "@/lib/supabase/server";
+import { dentroDeLimite } from "@/lib/limites";
 import { calcularPuntuacionMedia } from "@/lib/resenas";
 import { getUsuarioYFavoritos } from "@/lib/favoritos";
 import BotonFavorito from "@/components/BotonFavorito";
@@ -160,6 +161,10 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Anti-abuso: una persona no reseña a ráfagas. 8 en 10 min es
+    // holgado; frena cuentas creadas para inflar/hundir negocios.
+    if (!(await dentroDeLimite(supabase, `user:${user.id}`, "resena", 8, "10 minutes"))) return;
 
     const puntuacion = Number(formData.get("puntuacion"));
     if (!Number.isInteger(puntuacion) || puntuacion < 1 || puntuacion > 5) return;

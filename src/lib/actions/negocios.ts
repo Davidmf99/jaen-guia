@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dentroDeLimite } from "@/lib/limites";
 import {
   enviarCorreo,
   avisarAdmin,
@@ -37,6 +38,12 @@ export async function solicitarGestionNegocio(formData: FormData) {
   const telefono = String(formData.get("telefono_contacto") ?? "").trim().slice(0, 30) || null;
 
   if (!negocioId || !slug) return;
+
+  // Anti-abuso: frena a quien intente reclamar decenas de negocios en
+  // ráfaga. La PK ya impide repetir el mismo negocio; esto acota el ritmo.
+  if (!(await dentroDeLimite(supabase, `user:${user.id}`, "solicitud", 6, "1 hour"))) {
+    redirect(`${rutaFicha}?solicitud=${encodeURIComponent("Has enviado muchas solicitudes seguidas. Espera un rato.")}#gestionar`);
+  }
 
   const { error } = await supabase.from("negocios_miembros").insert({
     negocio_id: negocioId,

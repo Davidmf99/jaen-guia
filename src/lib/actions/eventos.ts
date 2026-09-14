@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dentroDeLimite } from "@/lib/limites";
 import { isoDesdeHoraJaen, isoDiaCompletoJaen, finEvento } from "@/lib/eventos";
 
 // Código de Postgres para violación de índice único. En `eventos` hay
@@ -117,6 +118,11 @@ export async function crearEventoNegocio(formData: FormData) {
   if (!user) redirect("/login");
 
   const slugNegocio = String(formData.get("slug_negocio") ?? "");
+  // Anti-abuso: un dueño real no publica más de un puñado de eventos
+  // seguidos. 12/hora deja margen de sobra y frena un bucle automatizado.
+  if (!(await dentroDeLimite(supabase, `user:${user.id}`, "evento", 12, "1 hour"))) {
+    volverAlPanel("Estás publicando eventos muy rápido. Espera un rato e inténtalo de nuevo.", "error", slugNegocio);
+  }
   const resultado = await insertarEventoNegocio(supabase, user.id, formData);
   if (!resultado.ok) volverAlPanel(resultado.mensaje, "error", slugNegocio);
 
