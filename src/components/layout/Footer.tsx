@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { getCategorias } from "@/lib/categorias";
 
 const SECCIONES = [
@@ -93,6 +94,16 @@ export default async function Footer() {
               Contacto
             </Link>
           </div>
+          {/* La web la hace una persona y no lleva anuncios: el apoyo se
+              pide aquí, al lado de lo del negocio, sin convertirlo en
+              banner. */}
+          <p className="mt-5 text-base text-oliva-700">Sin anuncios. Si la web te sirve, puedes echar una mano.</p>
+          <Link
+            href="/apoya"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-terracota-500/60 px-5 text-base font-medium text-terracota-600 transition-colors hover:bg-terracota-500/10"
+          >
+            <Heart size={16} aria-hidden="true" /> Apoya Jaén Guía
+          </Link>
         </div>
       </div>
 
