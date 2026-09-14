@@ -5,14 +5,15 @@ import EventosProximos from "@/components/home/EventosProximos";
 import EsenciaJaen from "@/components/home/EsenciaJaen";
 import MapaExperiencia from "@/components/home/MapaExperiencia";
 import { getCategorias } from "@/lib/categorias";
+import { JsonLd, SEO_RAIZ, organizacionJsonLd } from "@/lib/seo";
 
 // Coincide a propósito con el metadata por defecto de layout.tsx: se
 // declara aquí también para que "/" siga el mismo patrón explícito que
 // el resto de rutas (todas exportan su propio metadata/generateMetadata).
 export const metadata: Metadata = {
-  title: "Jaén Guía · Alma de la Tierra",
-  description:
-    "Guía de gastronomía, cultura y ocio de Jaén: descubre bares, tiendas, eventos y experiencias, hechas por y para jiennenses y visitantes.",
+  title: SEO_RAIZ.titulo,
+  description: SEO_RAIZ.descripcion,
+  alternates: { canonical: "/" },
 };
 
 export default async function HomePage() {
@@ -22,6 +23,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={organizacionJsonLd()} />
       <main>
         <Hero categorias={categorias} />
         {/* Eventos primero: es lo único con fecha, lo único que responde

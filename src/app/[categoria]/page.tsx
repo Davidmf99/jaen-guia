@@ -13,24 +13,17 @@ import { SERVICIOS } from "@/lib/servicios";
 import { estaAbierto } from "@/lib/horario";
 import { esNegocio, esTipoNegocio } from "@/lib/categorias";
 import type { Categoria } from "@/types";
+import { JsonLd, SEO_CATEGORIA, listaJsonLd, migasJsonLd, tituloCategoria } from "@/lib/seo";
 
 // Copy editorial por categoría (párrafo de cabecera + meta description).
 // No sale de `categorias` porque esa tabla no tiene columna de
 // descripción larga; el título y la validez de la ruta sí se resuelven
 // contra la tabla (ver getCategoriaPorSlug), así que añadir/quitar una
-// categoría en BD no requiere tocar código salvo, opcionalmente, este
-// texto.
-const DESCRIPCIONES: Record<string, string> = {
-  gastronomia:
-    "Bares, restaurantes y rincones donde probar la cocina jiennense, del tapeo al aceite de oliva virgen extra.",
-  cultura:
-    "Monumentos, museos y actividades culturales para conocer la historia y el arte de Jaén.",
-  naturaleza:
-    "Turismo rural, senderos y espacios naturales alrededor de la capital jiennense.",
-  tiendas: "Comercio local y tiendas con identidad propia en Jaén capital.",
-  experiencias:
-    "Planes y actividades de ocio para vivir Jaén de una forma distinta.",
-};
+// categoría en BD no requiere tocar código salvo, opcionalmente, el
+// texto de SEO_CATEGORIA (título y descripción viven juntos en lib/seo).
+const DESCRIPCIONES: Record<string, string> = Object.fromEntries(
+  Object.entries(SEO_CATEGORIA).map(([slug, v]) => [slug, v.descripcion])
+);
 
 const PAGE_SIZE = 12;
 // Tope de filas al ordenar por "mejor valorados" (ver getNegocios). No es
@@ -211,8 +204,10 @@ export async function generateMetadata({
   if (!info) return {};
 
   return {
-    title: `${info.nombre} · Jaén Guía`,
+    title: `${tituloCategoria(info.slug, info.nombre)} · Jaén Guía`,
     description: DESCRIPCIONES[info.slug],
+    // Filtros, orden y paginación son la misma página para Google.
+    alternates: { canonical: `/${info.slug}` },
   };
 }
 
@@ -279,6 +274,15 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
 
   return (
     <>
+      <JsonLd
+        data={[
+          migasJsonLd([{ nombre: "Inicio", ruta: "/" }, { nombre: info.nombre, ruta: `/${info.slug}` }]),
+          listaJsonLd(
+            tituloCategoria(info.slug, info.nombre),
+            negocios.map((n) => ({ nombre: n.nombre, ruta: `/negocio/${n.slug}` }))
+          ),
+        ]}
+      />
       <main className="min-h-screen bg-tierra-50 pb-24">
         {/* Cabecera monumental */}
         <header className="relative overflow-hidden pt-24 pb-16 md:pt-32 md:pb-24">

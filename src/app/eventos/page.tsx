@@ -23,8 +23,10 @@ const DESCRIPCION =
   "Conciertos, ferias, rutas y talleres de la provincia, ordenados por fecha.";
 
 export const metadata: Metadata = {
-  title: `${TITULO} · Jaén Guía`,
-  description: DESCRIPCION,
+  title: "Agenda de eventos en Jaén: qué hacer hoy y este fin de semana · Jaén Guía",
+  description:
+    "Conciertos, ferias, mercados, rutas y talleres en Jaén y provincia, ordenados por fecha. La agenda de qué hacer en Jaén hoy, mañana y el fin de semana.",
+  alternates: { canonical: "/eventos" },
 };
 
 interface EventoRow {

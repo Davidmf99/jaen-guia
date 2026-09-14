@@ -167,3 +167,44 @@ export function proximoCambio(
   }
   return null;
 }
+
+// ---------------------------------------------------------------
+// Horario en formato schema.org (OpeningHoursSpecification), para el
+// JSON-LD de la ficha. Un tramo que cruza la medianoche se expresa con
+// closes < opens, que es lo que Google espera ("20:00" → "02:00").
+// "Abierto 24 horas" es 00:00 → 23:59 por convención de Google.
+// ---------------------------------------------------------------
+
+const DIA_SCHEMA: Record<ClaveDia, string> = {
+  lunes: "Monday",
+  martes: "Tuesday",
+  miercoles: "Wednesday",
+  jueves: "Thursday",
+  viernes: "Friday",
+  sabado: "Saturday",
+  domingo: "Sunday",
+};
+
+function hhmm(minutos: number) {
+  const m = minutos % (24 * 60);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+export function horarioSchema(horario: Record<string, string> | null | undefined) {
+  const h = normalizarHorario(horario);
+  const salida: Array<{ "@type": "OpeningHoursSpecification"; dayOfWeek: string; opens: string; closes: string }> = [];
+  for (const d of DIAS_SEMANA) {
+    const valor = h[d.clave];
+    if (!valor) continue;
+    const tramos = parsearTramos(valor);
+    if (!tramos) continue;
+    if (tramos === "todo_el_dia") {
+      salida.push({ "@type": "OpeningHoursSpecification", dayOfWeek: DIA_SCHEMA[d.clave], opens: "00:00", closes: "23:59" });
+      continue;
+    }
+    for (const t of tramos) {
+      salida.push({ "@type": "OpeningHoursSpecification", dayOfWeek: DIA_SCHEMA[d.clave], opens: hhmm(t.inicio), closes: hhmm(t.fin) });
+    }
+  }
+  return salida;
+}

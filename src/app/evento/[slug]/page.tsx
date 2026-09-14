@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fechaEvento, fechaEventoAbsoluta } from "@/lib/eventos";
 import ComoLlegar from "@/components/ComoLlegar";
 import type { Categoria } from "@/types";
+import { JsonLd, eventoJsonLd, migasJsonLd } from "@/lib/seo";
 
 interface EventoFichaRow {
   id: string;
@@ -26,6 +27,7 @@ interface EventoFichaRow {
   fuente_url: string | null;
   categoria: { nombre: string; slug: string; tipo: Categoria["tipo"] } | null;
   negocio: { nombre: string; slug: string } | null;
+  municipio: { nombre: string } | null;
 }
 
 // cache() deduplica la consulta entre generateMetadata y el propio Page,
@@ -42,7 +44,7 @@ const getEvento = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("eventos")
     .select(
-      "id, slug, titulo, descripcion, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, precio_texto, imagen, lugar_nombre, direccion, fuente_nombre, fuente_url, categoria:categorias(nombre, slug, tipo), negocio:negocios(nombre, slug)"
+      "id, slug, titulo, descripcion, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, precio_texto, imagen, lugar_nombre, direccion, fuente_nombre, fuente_url, categoria:categorias(nombre, slug, tipo), negocio:negocios(nombre, slug), municipio:municipios(nombre)"
     )
     .eq("slug", slug)
     .eq("estado", "publicado")
@@ -68,8 +70,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     evento.descripcion ?? [cuando, lugar].filter(Boolean).join(" · ");
 
   return {
-    title: `${evento.titulo} · Jaén Guía`,
+    // La fecha en el título: quien busca un evento busca "X Jaén 2026".
+    title: `${evento.titulo} · ${cuando} · Jaén Guía`,
     description: descripcion,
+    alternates: { canonical: `/evento/${evento.slug}` },
     // openGraph es lo que leen WhatsApp, Telegram y las redes para armar
     // la tarjeta del enlace. Las rutas relativas se resuelven contra el
     // metadataBase de layout.tsx.
@@ -99,6 +103,16 @@ export default async function EventoPage({ params }: PageProps) {
 
   return (
     <>
+      <JsonLd
+        data={[
+          eventoJsonLd(evento),
+          migasJsonLd([
+            { nombre: "Inicio", ruta: "/" },
+            { nombre: "Eventos", ruta: "/eventos" },
+            { nombre: evento.titulo, ruta: `/evento/${evento.slug}` },
+          ]),
+        ]}
+      />
       <main>
         <div className="relative h-64 w-full overflow-hidden md:h-80">
           <ImagenEvento

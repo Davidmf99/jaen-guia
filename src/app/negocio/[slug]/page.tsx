@@ -20,6 +20,7 @@ import { SERVICIOS, etiquetaRangoPrecio } from "@/lib/servicios";
 import { horarioOrdenado, estaAbierto, proximoCambio } from "@/lib/horario";
 import { esNegocio as clasificarNegocio, muestraHorario } from "@/lib/categorias";
 import type { Categoria } from "@/types";
+import { JsonLd, imagenNegocio, migasJsonLd, negocioJsonLd } from "@/lib/seo";
 
 function iniciales(nombre: string) {
   return nombre
@@ -67,7 +68,8 @@ interface NegocioFichaRow {
   email: string | null;
   instagram: string | null;
   es_destacado: boolean;
-  categoria: { nombre: string; tipo: Categoria["tipo"] } | null;
+  facebook: string | null;
+  categoria: { nombre: string; slug: string; tipo: Categoria["tipo"] } | null;
   resenas: ResenaRow[];
 }
 
@@ -78,7 +80,7 @@ const getNegocio = cache(async (slug: string) => {
   const { data, error } = await supabase
     .from("negocios")
     .select(
-      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, es_destacado, categoria:categorias(nombre, tipo), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
+      "id, nombre, slug, descripcion, descripcion_corta, direccion, zona, lat, lng, telefono, web, horario, imagen_portada, google_photo_name, google_photo_atribucion, rango_precio, tipo_cocina, especialidades, servicios, email, instagram, facebook, es_destacado, categoria:categorias(nombre, slug, tipo), resenas(id, puntuacion, texto, es_oficial, created_at, usuario_id, perfil:perfiles(nombre, apellidos, username))"
     )
     .eq("slug", slug)
     .single()
@@ -98,9 +100,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const negocio = await getNegocio(slug);
   if (!negocio) return {};
 
+  // "Bar Pepe · Bar en Centro, Jaén": lo que alguien teclea en Google
+  // es el nombre o "bar en jaén", no "Gastronomía".
+  const tipo = negocio.tipo_cocina[0] ?? negocio.categoria?.nombre;
+  const donde = negocio.zona ? `${negocio.zona}, Jaén` : "Jaén";
+  const descripcion =
+    negocio.descripcion_corta ??
+    negocio.descripcion ??
+    `${negocio.nombre}${tipo ? `, ${tipo.toLowerCase()}` : ""} en ${donde}: ${
+      clasificarNegocio(negocio) ? "dirección, horario, teléfono y opiniones" : "dónde está, cómo llegar y qué ver"
+    } en Jaén Guía.`;
+  const imagen = imagenNegocio(negocio);
+
   return {
-    title: `${negocio.nombre} · Jaén Guía`,
-    description: negocio.descripcion_corta ?? negocio.descripcion ?? undefined,
+    title: `${negocio.nombre}${tipo ? ` · ${tipo} en ${donde}` : " · Jaén"} · Jaén Guía`,
+    description: descripcion,
+    alternates: { canonical: `/negocio/${negocio.slug}` },
+    openGraph: {
+      title: negocio.nombre,
+      description: descripcion,
+      type: "website",
+      images: imagen ? [{ url: imagen }] : undefined,
+    },
   };
 }
 
@@ -171,6 +192,16 @@ export default async function NegocioPage({ params, searchParams }: PageProps) {
 
   return (
     <>
+      <JsonLd
+        data={[
+          negocioJsonLd(negocio),
+          migasJsonLd([
+            { nombre: "Inicio", ruta: "/" },
+            ...(negocio.categoria ? [{ nombre: negocio.categoria.nombre, ruta: `/${negocio.categoria.slug}` }] : []),
+            { nombre: negocio.nombre, ruta: `/negocio/${negocio.slug}` },
+          ]),
+        ]}
+      />
       <main className="min-h-screen bg-tierra-50 pb-24">
         {/* Cabecera hero: En lugar de un SVG curve feo, usamos un Bento block flotante */}
         <div className="mx-auto max-w-6xl px-6 pt-10">

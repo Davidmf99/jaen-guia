@@ -4,6 +4,7 @@ import "./globals.css";
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import BarraProgreso from "@/components/layout/BarraProgreso";
+import { NOMBRE_SITIO, SEO_RAIZ } from "@/lib/seo";
 
 import { Playfair_Display, Inter } from "next/font/google";
 
@@ -29,9 +30,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
   ),
-  title: "Jaén Guía · Alma de la Tierra",
-  description:
-    "Guía de gastronomía, cultura y ocio de Jaén: descubre bares, tiendas, eventos y experiencias, hechas por y para jiennenses y visitantes.",
+  title: SEO_RAIZ.titulo,
+  description: SEO_RAIZ.descripcion,
+  openGraph: { siteName: NOMBRE_SITIO, locale: "es_ES", type: "website" },
 };
 
 export default function RootLayout({
