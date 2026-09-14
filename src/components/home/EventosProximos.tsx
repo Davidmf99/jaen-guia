@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getMunicipioCapitalId } from "@/lib/municipios";
+import { getUltimaActualizacion, textoActualizacion } from "@/lib/eventos-actualizacion";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import AgendaCortes, { type GrupoAgenda } from "./AgendaCortes";
 import type { EventoTarjeta } from "./EventoCard";
@@ -46,18 +47,20 @@ interface EventoRow {
  * en memoria: un concierto pagado para dentro de diez días no entraría en
  * los seis primeros por fecha. Se traen aparte y se rellena con el resto.
  */
-async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
+async function getEventos(corte?: CorteTemporal): Promise<{ eventos: EventoTarjeta[]; total: number }> {
   const supabase = await createClient();
   const capitalId = await getMunicipioCapitalId();
   const ahora = new Date();
 
-  const consulta = () => {
-    let q = supabase
-      .from("eventos")
-      .select(
-        "id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, promocionado_hasta, categoria:categorias(nombre, tipo), negocio:negocios(nombre)"
-      )
-      .eq("estado", "publicado");
+  const COLUMNAS =
+    "id, slug, titulo, fecha_inicio, fecha_fin, es_todo_el_dia, es_gratis, imagen, lugar_nombre, origen, fuente_nombre, fuente_url, promocionado_hasta, categoria:categorias(nombre, tipo), negocio:negocios(nombre)";
+  // Los mismos filtros para las filas y para el recuento: la única
+  // diferencia es el select.
+  const consulta = (modo: "filas" | "recuento" = "filas") => {
+    let q = (modo === "filas"
+      ? supabase.from("eventos").select(COLUMNAS)
+      : supabase.from("eventos").select("id", { count: "exact", head: true })
+    ).eq("estado", "publicado");
 
     // Fase capital: los eventos de la provincia (los que trae la Agenda
     // Cultural de Andalucía de Martos, Villacarrillo, Bailén…) se quedan
@@ -78,16 +81,19 @@ async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
   const ordenada = (q: ReturnType<typeof consulta>) =>
     q.order("fecha_inicio", { ascending: true }).limit(MAX_EVENTOS).returns<EventoRow[]>();
 
-  const [promocionados, resto] = await Promise.all([
+  // El total real del corte, aparte del LIMIT: la pestaña enseña "Próximos
+  // 47", no "6", que es lo que cabe en la rejilla.
+  const [promocionados, resto, recuento] = await Promise.all([
     ordenada(
       consulta()
         .gt("promocionado_hasta", ahora.toISOString())
         .lt("fecha_inicio", limiteVentanaPromocion(ahora))
     ),
     ordenada(consulta()),
+    consulta("recuento"),
   ]);
 
-  if (promocionados.error || resto.error) return [];
+  if (promocionados.error || resto.error) return { eventos: [], total: 0 };
 
   const vistos = new Set<string>();
   const filas: EventoRow[] = [];
@@ -97,7 +103,7 @@ async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
     filas.push(evento);
   }
 
-  return filas.slice(0, MAX_EVENTOS).map((evento) => ({
+  const eventos = filas.slice(0, MAX_EVENTOS).map((evento) => ({
     id: evento.id,
     slug: evento.slug,
     titulo: evento.titulo,
@@ -125,33 +131,25 @@ async function getEventos(corte?: CorteTemporal): Promise<EventoTarjeta[]> {
     categoriaTipo: evento.categoria?.tipo ?? null,
     promocionado: estaPromocionado(evento.promocionado_hasta, evento.fecha_inicio, ahora),
   }));
+  return { eventos, total: recuento.count ?? eventos.length };
 }
 
 export default async function EventosProximos() {
   // Los cuatro cortes de una vez: cambiar de pestaña no debe costar una
   // navegación. Son consultas pequeñas (6 filas como mucho cada una).
-  const [hoy, manana, finde, proximos] = await Promise.all([
+  const [hoy, manana, finde, proximos, ultima] = await Promise.all([
     getEventos("hoy"),
     getEventos("manana"),
     getEventos("finde"),
     getEventos(),
+    getUltimaActualizacion(),
   ]);
 
   const grupos: GrupoAgenda[] = [
-    { clave: "hoy", etiqueta: "Hoy", eventos: hoy, href: "/eventos?cuando=hoy" },
-    {
-      clave: "manana",
-      etiqueta: "Mañana",
-      eventos: manana,
-      href: "/eventos?cuando=manana",
-    },
-    {
-      clave: "finde",
-      etiqueta: "Este finde",
-      eventos: finde,
-      href: "/eventos?cuando=finde",
-    },
-    { clave: "proximos", etiqueta: "Próximos", eventos: proximos, href: "/eventos" },
+    { clave: "hoy", etiqueta: "Hoy", eventos: hoy.eventos, total: hoy.total, href: "/eventos?cuando=hoy" },
+    { clave: "manana", etiqueta: "Mañana", eventos: manana.eventos, total: manana.total, href: "/eventos?cuando=manana" },
+    { clave: "finde", etiqueta: "Este finde", eventos: finde.eventos, total: finde.total, href: "/eventos?cuando=finde" },
+    { clave: "proximos", etiqueta: "Próximos", eventos: proximos.eventos, total: proximos.total, href: "/eventos" },
   ];
 
   return (
@@ -160,7 +158,7 @@ export default async function EventosProximos() {
     // scroll en un móvil de 360×640.
     <AnimatedSection className="pt-2 pb-12">
       <div className="mx-auto max-w-6xl px-6">
-        <AgendaCortes grupos={grupos} />
+        <AgendaCortes grupos={grupos} actualizado={textoActualizacion(ultima)} />
       </div>
     </AnimatedSection>
   );

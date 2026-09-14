@@ -2,19 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RefreshCw } from "lucide-react";
 import EventoCard, { type EventoTarjeta } from "./EventoCard";
 
 export interface GrupoAgenda {
   clave: "hoy" | "manana" | "finde" | "proximos";
   etiqueta: string;
   eventos: EventoTarjeta[];
+  /** Cuántos hay en total en ese corte: aquí solo se pintan los primeros. */
+  total: number;
   /** Listado completo de ese corte en /eventos. */
   href: string;
 }
 
 interface Props {
   grupos: GrupoAgenda[];
+  /** "hoy a las 09:12": cuándo entró el último evento leído solo. */
+  actualizado: string | null;
 }
 
 const VACIO: Record<GrupoAgenda["clave"], string> = {
@@ -32,7 +36,7 @@ const IR_A: Record<GrupoAgenda["clave"], string> = {
   proximos: "los próximos días",
 };
 
-export default function AgendaCortes({ grupos }: Props) {
+export default function AgendaCortes({ grupos, actualizado }: Props) {
   // Siempre arranca en "Hoy", tenga o no tenga eventos. Antes se abría
   // por el primer corte con algo que enseñar, así que en un día sin nada
   // la pestaña activa saltaba sola a "Próximos" y el usuario veía planes
@@ -59,7 +63,7 @@ export default function AgendaCortes({ grupos }: Props) {
             href={grupo.href}
             className="inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
           >
-            Ver todos &rsaquo;
+            Ver todos{grupo.total > grupo.eventos.length ? ` (${grupo.total})` : ""} &rsaquo;
           </Link>
         )}
       </div>
@@ -91,7 +95,7 @@ export default function AgendaCortes({ grupos }: Props) {
               <span
                 className={`ml-1.5 ${activo ? "text-white/80" : "text-oliva-500"}`}
               >
-                {g.eventos.length}
+                {g.total}
               </span>
             </button>
           );
@@ -115,7 +119,7 @@ export default function AgendaCortes({ grupos }: Props) {
               onClick={() => setActiva(alternativa.clave)}
               className="mt-1 flex min-h-11 items-center rounded-full bg-oliva-900 px-5 text-base font-semibold text-white hover:bg-terracota-700 transition-colors"
             >
-              Ver qué hay {IR_A[alternativa.clave]} ({alternativa.eventos.length})
+              Ver qué hay {IR_A[alternativa.clave]} ({alternativa.total})
             </button>
           )}
 
@@ -133,6 +137,16 @@ export default function AgendaCortes({ grupos }: Props) {
           ))}
         </div>
       )}
+
+      {/* Lo mismo que en /eventos: la agenda se llena sola cada mañana y
+          hay que decirlo, sobre todo los días flojos. */}
+      <p className="mt-5 flex flex-wrap items-center gap-x-1.5 text-sm text-oliva-600">
+        <RefreshCw size={14} aria-hidden="true" className="shrink-0" />
+        <span>
+          Se actualiza cada mañana con lo que publican los propios sitios
+          {actualizado && <> · última actualización {actualizado}</>}. Vuelve mañana: habrá más.
+        </span>
+      </p>
     </>
   );
 }
