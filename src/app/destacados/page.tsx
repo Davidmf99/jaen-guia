@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import NegocioCard from "@/components/home/NegocioCard";
-import EstadoVacio from "@/components/home/EstadoVacio";
+import { HuecoDestacado } from "@/components/home/BentoDestacados";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPuntuacionMedia } from "@/lib/resenas";
 import { getUsuarioYFavoritos } from "@/lib/favoritos";
 import GridStagger from "@/components/motion/GridStagger";
 
 const TITULO = "Destacados en Jaén";
-const DESCRIPCION = "Una selección de los mejores sitios de la ciudad, elegidos a mano.";
+const DESCRIPCION = "Negocios de Jaén que han elegido destacarse: salen aquí, en la portada y arriba en su categoría.";
 
 export const metadata: Metadata = {
   title: `${TITULO} · Jaén Guía`,
@@ -81,7 +81,7 @@ export default async function DestacadosPage() {
         </header>
 
         {negociosConFavorito.length === 0 ? (
-          <EstadoVacio mensaje="Aún no hay negocios destacados" />
+          <HuecoDestacado />
         ) : (
           <GridStagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {negociosConFavorito.map((negocio) => (

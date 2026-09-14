@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { calcularPuntuacionMedia } from "@/lib/resenas";
 import { getUsuarioYFavoritos } from "@/lib/favoritos";
 import NegocioCard from "./NegocioCard";
-import EstadoVacio from "./EstadoVacio";
 import AnimatedSection from "@/components/motion/AnimatedSection";
 import GridStagger from "@/components/motion/GridStagger";
 import { PRECIO_PLAN_DESTACADO } from "@/lib/stripe";
@@ -89,16 +89,20 @@ export default async function BentoDestacados() {
         <h2 className="font-sans text-3xl font-bold tracking-tight text-oliva-900">
           Destacados en Jaén
         </h2>
-        <Link
-          href="/destacados"
-          className="inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
-        >
-          Ver todos los destacados &rsaquo;
-        </Link>
+        {principal && (
+          <Link
+            href="/destacados"
+            className="inline-flex min-h-11 items-center text-base font-semibold text-terracota-600 hover:underline"
+          >
+            Ver todos los destacados &rsaquo;
+          </Link>
+        )}
       </div>
 
+      {/* Sin destacados no hay "aún no hay nada": el hueco es el producto.
+          Se enseña como escaparate vacío con lo que compra un negocio. */}
       {!principal ? (
-        <EstadoVacio mensaje="Aún no hay negocios destacados" />
+        <HuecoDestacado />
       ) : (
         <GridStagger className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="md:col-span-1">
@@ -119,6 +123,7 @@ export default async function BentoDestacados() {
       )}
 
       {/* Hueco de venta: es el sitio donde un dueño ve lo que compra. */}
+      {principal && (
       <p className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-terracota-500/40 bg-white px-5 py-4 text-base text-oliva-700">
         <span>
           <span className="font-semibold text-oliva-900">¿Quieres destacar tu negocio?</span> Sale aquí, en la
@@ -131,6 +136,35 @@ export default async function BentoDestacados() {
           Añade el tuyo &rsaquo;
         </Link>
       </p>
+      )}
     </AnimatedSection>
+  );
+}
+
+/** Escaparate vacío: tres huecos punteados y el argumento de venta en el primero. */
+export function HuecoDestacado() {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border-2 border-dashed border-terracota-500/50 bg-white p-6 md:row-span-1">
+        <div>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-terracota-600">
+            <Star size={12} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
+            Tu negocio aquí
+          </p>
+          <p className="mt-2 text-lg font-bold text-oliva-900">Este hueco es para tu bar, tienda o local.</p>
+          <p className="mt-1 text-base text-oliva-700">
+            Sale en la portada, arriba en su categoría y con insignia de destacado. Desde {PRECIO_PLAN_DESTACADO}, sin permanencia.
+          </p>
+        </div>
+        <Link
+          href="/para-negocios#destacado"
+          className="inline-flex min-h-11 w-fit items-center gap-1 rounded-full bg-terracota-500 px-5 font-semibold text-white transition-colors hover:bg-terracota-600"
+        >
+          Destacar mi negocio &rsaquo;
+        </Link>
+      </div>
+      <div className="hidden min-h-40 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50/60 md:block" aria-hidden="true" />
+      <div className="hidden min-h-40 rounded-2xl border-2 border-dashed border-oliva-100 bg-tierra-50/60 md:block" aria-hidden="true" />
+    </div>
   );
 }
