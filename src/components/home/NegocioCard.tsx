@@ -48,7 +48,10 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
         negocio.destacado ? "ring-2 ring-terracota-500/60" : ""
       }`}
     >
-      <div className={`relative ${ASPECTO_IMAGEN} overflow-hidden`}>
+      {/* @container aquí y no en el <article>: con contención de tamaño el
+          artículo dejaba de estirarse en la rejilla y las tarjetas
+          quedaban de 100 px. La cabecera hereda el ancho del artículo. */}
+      <div className={`@container relative ${ASPECTO_IMAGEN} overflow-hidden`}>
         <ImagenNegocio
           negocioId={negocio.id}
           nombre={negocio.nombre}
@@ -60,18 +63,21 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
             independientes la etiqueta no sabe cuánto ocupa "Guardar" /
             "Guardado" y se le montaba encima cuando llevaba puntuación. Aquí
             el botón no encoge y la etiqueta recorta el nombre de categoría
-            (nunca la nota) con el espacio que queda. */}
+            (nunca la nota) con el espacio que queda. "Destacado" no va aquí:
+            en una tarjeta de 300 px no cabía junto a "Guardar" y se cortaba;
+            va en el cuerpo, encima del nombre. Si no hay nada que enseñar,
+            la píldora no se pinta. */}
         <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900">
-            {negocio.destacado && (
-              <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold text-terracota-600">
-                <Star size={14} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
-                Destacado
-                {negocio.categoriaNombre && <span className="mx-0.5 text-oliva-300" aria-hidden="true">·</span>}
-              </span>
-            )}
+          <div
+            className={`flex min-w-0 items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-sm font-medium text-oliva-900 ${
+              negocio.puntuacion_media ? "" : negocio.categoriaNombre ? "@max-[260px]:invisible" : "invisible"
+            }`}
+          >
+            {/* En tarjetas estrechas (menos de 260 px) la categoría no cabe
+                entera junto a "Guardar" y se quedaba en "Gastr…": mejor no
+                enseñarla. La nota, que es corta, se queda siempre. */}
             {negocio.categoriaNombre && (
-              <span className="min-w-0 truncate">{negocio.categoriaNombre}</span>
+              <span className="min-w-0 truncate @max-[260px]:hidden">{negocio.categoriaNombre}</span>
             )}
             {negocio.puntuacion_media && (
               <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-terracota-600">
@@ -106,6 +112,12 @@ export default function NegocioCard({ negocio, rutaActual }: Props) {
               className={`h-2 w-2 rounded-full ${negocio.abiertoAhora ? "bg-green-600" : "bg-oliva-200"}`}
             />
             {negocio.abiertoAhora ? "Abierto ahora" : "Cerrado ahora"}
+          </p>
+        )}
+        {negocio.destacado && (
+          <p className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-terracota-600">
+            <Star size={12} aria-hidden="true" className="fill-terracota-500 text-terracota-500" />
+            Destacado
           </p>
         )}
         <h3 className="font-sans text-lg font-bold tracking-tight text-oliva-900">
