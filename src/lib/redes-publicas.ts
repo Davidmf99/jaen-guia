@@ -1,5 +1,6 @@
 import "server-only";
 import { descargarImagen, type MediaInstagram } from "@/lib/facebook";
+export type { MediaInstagram };
 
 // Lectura de redes PÚBLICAS sin permiso del negocio.
 //
@@ -10,6 +11,12 @@ import { descargarImagen, type MediaInstagram } from "@/lib/facebook";
 // instagram_basic, instagram_manage_insights, pages_read_engagement.
 //   INSTAGRAM_JG_USER_ID   id de la cuenta IG de Jaén Guía
 //   INSTAGRAM_JG_TOKEN     token de página (larga duración)
+//
+// Instagram sin Meta: mientras no haya App Review (semanas), se lee
+// con el actor de Apify "apify/instagram-scraper" por URL de perfil,
+// igual que Facebook. Si están las dos vías, manda Business Discovery
+// (oficial y gratis); si no, Apify.
+//   APIFY_INSTAGRAM_ACTOR  opcional, por defecto apify~instagram-scraper
 //
 // Facebook: no hay API pública. Se usa el actor de Apify
 // "apify/facebook-posts-scraper" sobre la URL de la página.
@@ -83,6 +90,92 @@ export async function mediaPublicoInstagram(usuario: string, desde: Date, limite
     throw new Error(`Graph business_discovery(${usuario}): ${json.error.message}`);
   }
   return (json.business_discovery?.media?.data ?? []).filter((m) => new Date(m.timestamp) > desde);
+}
+
+// ---------------------------------------------------------------
+// Instagram vía Apify
+// ---------------------------------------------------------------
+
+interface ItemApifyInstagram {
+  id?: string;
+  shortCode?: string;
+  type?: "Image" | "Video" | "Sidecar";
+  caption?: string;
+  url?: string;
+  displayUrl?: string;
+  images?: string[];
+  timestamp?: string;
+  ownerUsername?: string;
+  inputUrl?: string;
+  error?: string;
+  errorDescription?: string;
+}
+
+/**
+ * Posts recientes de varios usuarios en UNA ejecución del actor.
+ * Devuelve el media en el mismo formato que Business Discovery,
+ * agrupado por usuario (en minúsculas). Un usuario que Apify marque
+ * como inexistente o privado va en `noAccesibles` con el motivo.
+ */
+export async function mediaPublicoInstagramApify(
+  usuarios: string[],
+  desde: Date,
+  limitePorUsuario = 10
+): Promise<{ porUsuario: Map<string, MediaInstagram[]>; noAccesibles: Map<string, string> }> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error("Falta APIFY_TOKEN");
+  const actor = process.env.APIFY_INSTAGRAM_ACTOR ?? "apify~instagram-scraper";
+
+  const url = new URL(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items`);
+  url.searchParams.set("token", token);
+  url.searchParams.set("timeout", "300");
+  url.searchParams.set("format", "json");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      directUrls: usuarios.map((u) => `https://www.instagram.com/${u}/`),
+      resultsType: "posts",
+      resultsLimit: limitePorUsuario,
+      onlyPostsNewerThan: desde.toISOString().slice(0, 10),
+      addParentData: false,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Apify ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const items = (await res.json()) as ItemApifyInstagram[];
+
+  const porUsuario = new Map<string, MediaInstagram[]>();
+  const noAccesibles = new Map<string, string>();
+  const usuarioDe = (it: ItemApifyInstagram) =>
+    (it.ownerUsername ?? it.inputUrl?.match(/instagram\.com\/([A-Za-z0-9_.]+)/)?.[1] ?? "").toLowerCase();
+
+  for (const it of items) {
+    const usuario = usuarioDe(it);
+    if (!usuario) continue;
+    if (it.error) {
+      noAccesibles.set(usuario, it.errorDescription ?? it.error);
+      continue;
+    }
+    const id = it.id ?? it.shortCode;
+    if (!id || !it.timestamp || new Date(it.timestamp) <= desde) continue;
+    const imagen = it.displayUrl ?? it.images?.[0];
+    const media: MediaInstagram = {
+      id,
+      caption: it.caption,
+      media_type: it.type === "Video" ? "VIDEO" : it.type === "Sidecar" ? "CAROUSEL_ALBUM" : "IMAGE",
+      // El scraper da la miniatura del vídeo en displayUrl: vale para la extracción.
+      media_url: it.type === "Video" ? undefined : imagen,
+      thumbnail_url: it.type === "Video" ? imagen : undefined,
+      permalink: it.url ?? (it.shortCode ? `https://www.instagram.com/p/${it.shortCode}/` : undefined),
+      timestamp: it.timestamp,
+    };
+    const lista = porUsuario.get(usuario) ?? [];
+    lista.push(media);
+    porUsuario.set(usuario, lista);
+  }
+  return { porUsuario, noAccesibles };
 }
 
 // ---------------------------------------------------------------

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sincronizarInstagramPublico, sincronizarFacebookPublico } from "@/lib/sync-publico";
 
-// Lee Instagram (Business Discovery) y Facebook (Apify) de los negocios
+// Lee Instagram (Business Discovery o, sin App Review, Apify) y Facebook (Apify) de los negocios
 // que tienen esas redes rellenadas, sin que hayan conectado nada.
 // ?red=instagram|facebook para lanzar solo una; ?lote=N para el tamaño.
 export const runtime = "nodejs";

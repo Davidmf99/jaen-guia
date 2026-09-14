@@ -5,11 +5,13 @@ import {
   usuarioInstagram,
   urlPaginaFacebook,
   mediaPublicoInstagram,
+  mediaPublicoInstagramApify,
   postsPublicosFacebook,
   descargarImagen,
   instagramDiscoveryConfigurado,
   apifyConfigurado,
   CuentaNoAccesible,
+  type MediaInstagram,
 } from "@/lib/redes-publicas";
 
 // Recorre los negocios con Instagram/Facebook rellenado y lee sus
@@ -60,10 +62,13 @@ async function negociosConRed(
   resolver: (valor: string | null) => string | null
 ) {
   const columna = plataforma;
+  // Las tiendas no publican eventos (y Apify cobra por post leído):
+  // solo comer/beber, ocio, cultura y naturaleza.
   const { data: negocios } = await admin
     .from("negocios")
-    .select("id, slug, nombre, categoria_id, municipio_id, instagram, facebook")
+    .select("id, slug, nombre, categoria_id, municipio_id, instagram, facebook, categoria:categorias!inner(tipo)")
     .eq("activo", true)
+    .neq("categorias.tipo", "tienda")
     .not(columna, "is", null)
     .neq(columna, "")
     .returns<NegocioRed[]>();
@@ -104,53 +109,100 @@ async function marcar(
 // Instagram
 // ---------------------------------------------------------------
 
+/** Un post → buzón. Devuelve si ha creado borrador. */
+async function procesarMediaInstagram(admin: SupabaseClient, negocio: NegocioRed, usuario: string, m: MediaInstagram) {
+  const urlImagen = m.media_type === "VIDEO" ? m.thumbnail_url : m.media_url;
+  const imagen = urlImagen ? await descargarImagen(urlImagen) : null;
+  const salida = await procesarEntradaBuzon(admin, {
+    canal: "instagram",
+    externoId: m.id,
+    remitente: usuario,
+    remitenteNombre: negocio.nombre,
+    negocio: negocio as NegocioBuzon,
+    texto: m.caption ?? null,
+    imagen,
+    fuenteUrl: m.permalink ?? null,
+  });
+  return salida.estado === "borrador";
+}
+
 export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 60): Promise<ResumenPublico> {
   const r: ResumenPublico = { plataforma: "instagram", negocios: 0, publicaciones: 0, borradoresNuevos: 0, desactivados: [], errores: [] };
-  if (!instagramDiscoveryConfigurado()) {
-    r.errores.push("Instagram Discovery sin configurar (INSTAGRAM_JG_USER_ID / INSTAGRAM_JG_TOKEN).");
+  if (!instagramDiscoveryConfigurado() && !apifyConfigurado()) {
+    r.errores.push("Instagram sin configurar: ni Business Discovery (INSTAGRAM_JG_USER_ID / INSTAGRAM_JG_TOKEN) ni Apify (APIFY_TOKEN).");
     return r;
   }
 
-  for (const { negocio, desde } of await negociosConRed(admin, "instagram", lote, usuarioInstagram)) {
+  const pendientes = await negociosConRed(admin, "instagram", lote, usuarioInstagram);
+  const validos: { negocio: NegocioRed; desde: string; usuario: string }[] = [];
+  for (const { negocio, desde } of pendientes) {
     const usuario = usuarioInstagram(negocio.instagram);
-    const inicioRun = new Date().toISOString();
     if (!usuario) {
       await marcar(admin, negocio.id, "instagram", { identificador: null, desactivado: true, ultimo_error: `Usuario ilegible: ${negocio.instagram}` });
       r.desactivados.push(negocio.slug);
       continue;
     }
-    r.negocios++;
-    try {
-      const media = await mediaPublicoInstagram(usuario, new Date(desde));
-      r.publicaciones += media.length;
-      for (const m of media) {
-        const urlImagen = m.media_type === "VIDEO" ? m.thumbnail_url : m.media_url;
-        const imagen = urlImagen ? await descargarImagen(urlImagen) : null;
-        const salida = await procesarEntradaBuzon(admin, {
-          canal: "instagram",
-          externoId: m.id,
-          remitente: usuario,
-          remitenteNombre: negocio.nombre,
-          negocio: negocio as NegocioBuzon,
-          texto: m.caption ?? null,
-          imagen,
-          fuenteUrl: m.permalink ?? null,
-        });
-        if (salida.estado === "borrador") r.borradoresNuevos++;
+    validos.push({ negocio, desde, usuario });
+  }
+  if (validos.length === 0) return r;
+  r.negocios = validos.length;
+
+  if (instagramDiscoveryConfigurado()) {
+    // Vía oficial: una llamada por cuenta.
+    for (const { negocio, desde, usuario } of validos) {
+      const inicioRun = new Date().toISOString();
+      try {
+        const media = await mediaPublicoInstagram(usuario, new Date(desde));
+        r.publicaciones += media.length;
+        for (const m of media) if (await procesarMediaInstagram(admin, negocio, usuario, m)) r.borradoresNuevos++;
+        await marcar(admin, negocio.id, "instagram", { identificador: usuario, ultima_sync: inicioRun, ultimo_error: null });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (err instanceof CuentaNoAccesible) {
+          // Cuenta personal o inexistente: no insistir hasta que el admin lo mire.
+          await marcar(admin, negocio.id, "instagram", { identificador: usuario, desactivado: true, ultimo_error: msg.slice(0, 300) });
+          r.desactivados.push(negocio.slug);
+        } else {
+          await marcar(admin, negocio.id, "instagram", { identificador: usuario, ultimo_error: msg.slice(0, 300) });
+          r.errores.push(`${negocio.slug}: ${msg}`);
+          // Un error de token/cuota afecta a todos: no seguir quemando llamadas.
+          if (/token|OAuth|rate limit|\(#4\)|\(#17\)/i.test(msg)) break;
+        }
       }
+    }
+    return r;
+  }
+
+  // Vía Apify: todo el lote en una ejecución, como Facebook. "desde" =
+  // la fecha más antigua del lote; el filtro fino por negocio va después.
+  const desdeLote = new Date(validos.map((v) => v.desde).sort()[0]);
+  const inicioRun = new Date().toISOString();
+  let lectura: Awaited<ReturnType<typeof mediaPublicoInstagramApify>>;
+  try {
+    lectura = await mediaPublicoInstagramApify(validos.map((v) => v.usuario), desdeLote);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    r.errores.push(msg);
+    for (const v of validos) await marcar(admin, v.negocio.id, "instagram", { identificador: v.usuario, ultimo_error: msg.slice(0, 300) });
+    return r;
+  }
+
+  for (const { negocio, desde, usuario } of validos) {
+    const motivo = lectura.noAccesibles.get(usuario.toLowerCase());
+    if (motivo) {
+      await marcar(admin, negocio.id, "instagram", { identificador: usuario, desactivado: true, ultimo_error: motivo.slice(0, 300) });
+      r.desactivados.push(negocio.slug);
+      continue;
+    }
+    const media = (lectura.porUsuario.get(usuario.toLowerCase()) ?? []).filter((m) => new Date(m.timestamp) > new Date(desde));
+    r.publicaciones += media.length;
+    try {
+      for (const m of media) if (await procesarMediaInstagram(admin, negocio, usuario, m)) r.borradoresNuevos++;
       await marcar(admin, negocio.id, "instagram", { identificador: usuario, ultima_sync: inicioRun, ultimo_error: null });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (err instanceof CuentaNoAccesible) {
-        // Cuenta personal o inexistente: no insistir hasta que el admin lo mire.
-        await marcar(admin, negocio.id, "instagram", { identificador: usuario, desactivado: true, ultimo_error: msg.slice(0, 300) });
-        r.desactivados.push(negocio.slug);
-      } else {
-        await marcar(admin, negocio.id, "instagram", { identificador: usuario, ultimo_error: msg.slice(0, 300) });
-        r.errores.push(`${negocio.slug}: ${msg}`);
-        // Un error de token/cuota afecta a todos: no seguir quemando llamadas.
-        if (/token|OAuth|rate limit|\(#4\)|\(#17\)/i.test(msg)) break;
-      }
+      await marcar(admin, negocio.id, "instagram", { identificador: usuario, ultimo_error: msg.slice(0, 300) });
+      r.errores.push(`${negocio.slug}: ${msg}`);
     }
   }
   return r;
