@@ -6,6 +6,7 @@ const SECCIONES = [
   { href: "/destacados", label: "Destacados" },
   { href: "/buscar", label: "Buscar" },
   { href: "/contacto", label: "Contacto" },
+  { href: "/apoya", label: "Apoya Jaén Guía" },
 ];
 
 const LEGAL = [

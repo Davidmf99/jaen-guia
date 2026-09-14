@@ -15,6 +15,7 @@ const ESTATICAS: Array<{ ruta: string; prioridad: number; frecuencia: MetadataRo
   { ruta: "/destacados", prioridad: 0.7, frecuencia: "weekly" },
   { ruta: "/para-negocios", prioridad: 0.5, frecuencia: "monthly" },
   { ruta: "/contacto", prioridad: 0.3, frecuencia: "yearly" },
+  { ruta: "/apoya", prioridad: 0.4, frecuencia: "monthly" },
   { ruta: "/aviso-legal", prioridad: 0.1, frecuencia: "yearly" },
   { ruta: "/privacidad", prioridad: 0.1, frecuencia: "yearly" },
 ];

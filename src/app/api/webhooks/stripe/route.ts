@@ -156,6 +156,21 @@ async function sesionCompletada(admin: Admin, sesion: Stripe.Checkout.Session) {
     return;
   }
 
+  // Aportación desde /apoya (enlace de pago con importe libre): no toca
+  // la base, solo avisa a hola@ para poder dar las gracias.
+  if (tipo === "aportacion") {
+    const pago = await datosPago(null, sesion.amount_total);
+    await avisarAdmin(
+      correoAdminPagoRecibido({
+        negocio: { nombre: "Aportación a Jaén Guía", slug: "apoya" },
+        concepto: "aportación voluntaria",
+        pago,
+        email: emailPagador,
+      })
+    );
+    return;
+  }
+
   console.warn("[stripe] checkout.session.completed sin tipo conocido", sesion.id, tipo);
 }
 
