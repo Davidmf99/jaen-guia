@@ -198,16 +198,23 @@ interface PageProps {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { categoria } = await params;
   const info = await getCategoriaPorSlug(categoria);
   if (!info) return {};
 
+  // Con filtros, orden o paginación la URL no se indexa (y los enlaces
+  // de los chips llevan nofollow): un rastreador que las siga todas
+  // genera millones de combinaciones; ClaudeBot hizo 221.000
+  // peticiones a /gastronomia en 12 h antes de esto.
+  const sp = await searchParams;
+  const conParametros = Boolean(sp.orden || sp.pagina || sp.zona || sp.servicios || sp.abierto);
   return {
     title: `${tituloCategoria(info.slug, info.nombre)} · Jaén Guía`,
     description: DESCRIPCIONES[info.slug],
-    // Filtros, orden y paginación son la misma página para Google.
     alternates: { canonical: `/${info.slug}` },
+    robots: conParametros ? { index: false, follow: false } : undefined,
   };
 }
 
@@ -312,6 +319,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                     <Link
                       key={o.valor}
                       href={hrefConParams({ orden: o.valor, pagina: 1 })}
+                      rel="nofollow"
                       className={`inline-flex min-h-11 items-center rounded-full px-4 text-base font-semibold transition-all ${
                         activo
                           ? "bg-oliva-900 text-white shadow-sm"
@@ -377,6 +385,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
             {filtraApertura && (
             <Link
               href={hrefConParams({ abierto: abiertoAhora ? "" : "1", pagina: 1 })}
+              rel="nofollow"
               aria-pressed={abiertoAhora}
               className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-base font-semibold transition-colors ${
                 abiertoAhora
@@ -397,6 +406,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                 <Link
                   key={clave}
                   href={hrefServicio(clave)}
+                  rel="nofollow"
                   aria-pressed={activo}
                   className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-base font-semibold transition-colors ${
                     activo
@@ -412,6 +422,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
             {hayFiltros && (
               <Link
                 href={orden === "relevancia" ? `/${categoria}` : `/${categoria}?orden=${orden}`}
+                rel="nofollow"
                 className="inline-flex min-h-11 items-center px-3 text-base font-semibold text-terracota-600 hover:underline"
               >
                 Quitar filtros
@@ -445,6 +456,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                   {pagina > 1 ? (
                     <Link
                       href={hrefConParams({ orden, pagina: pagina - 1 })}
+                      rel="nofollow"
                       className="rounded-full border border-oliva-100 bg-white min-h-11 inline-flex items-center px-6 text-base font-bold text-oliva-900 hover:border-oliva-900 hover:bg-oliva-900 hover:text-white transition-all shadow-sm"
                     >
                       Anterior
@@ -462,6 +474,7 @@ export default async function CategoriaPage({ params, searchParams }: PageProps)
                   {pagina < totalPaginas ? (
                     <Link
                       href={hrefConParams({ orden, pagina: pagina + 1 })}
+                      rel="nofollow"
                       className="rounded-full bg-oliva-900 min-h-11 inline-flex items-center px-6 text-base font-bold text-white hover:bg-terracota-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
                     >
                       Siguiente
