@@ -7,6 +7,7 @@ import {
   mediaPublicoInstagram,
   mediaPublicoInstagramApify,
   postsPublicosFacebook,
+  postsPublicosGruposFacebook,
   descargarImagen,
   instagramDiscoveryConfigurado,
   apifyConfigurado,
@@ -42,7 +43,7 @@ interface Seguimiento {
 }
 
 export interface ResumenPublico {
-  plataforma: "instagram" | "facebook";
+  plataforma: "instagram" | "facebook" | "fuentes";
   negocios: number;
   publicaciones: number;
   borradoresNuevos: number;
@@ -269,6 +270,111 @@ export async function sincronizarFacebookPublico(admin: SupabaseClient, lote = 4
       if (salida.estado === "borrador") r.borradoresNuevos++;
     }
     await marcar(admin, v.negocio.id, "facebook", { identificador: v.url, ultima_sync: inicioRun, ultimo_error: null });
+  }
+  return r;
+}
+
+// ---------------------------------------------------------------
+// Cuentas fuente (fuentes_redes): agregadores, grupos, peñas. No son
+// negocios; el evento sale sin negocio salvo que el cartel nombre uno
+// de la guía (ver negocioPorNombre en buzon.ts).
+// ---------------------------------------------------------------
+
+interface FuenteRed {
+  id: string;
+  plataforma: "instagram" | "facebook" | "facebook_grupo";
+  identificador: string;
+  nombre: string;
+  ultima_sync: string | null;
+}
+
+export async function sincronizarFuentesPublicas(admin: SupabaseClient): Promise<ResumenPublico> {
+  const r: ResumenPublico = { plataforma: "fuentes", negocios: 0, publicaciones: 0, borradoresNuevos: 0, desactivados: [], errores: [] };
+  if (!apifyConfigurado()) {
+    r.errores.push("Apify sin configurar (APIFY_TOKEN).");
+    return r;
+  }
+  const { data } = await admin
+    .from("fuentes_redes")
+    .select("id, plataforma, identificador, nombre, ultima_sync")
+    .eq("activa", true)
+    .returns<FuenteRed[]>();
+  const fuentes = data ?? [];
+  if (!fuentes.length) return r;
+  r.negocios = fuentes.length;
+
+  // Un agregador anuncia con semanas de antelación: la primera lectura
+  // mira más atrás que la de un bar (que publica el cartel de su finde).
+  const inicial = new Date(Date.now() - 30 * 86400000).toISOString();
+  const desdeDe = (f: FuenteRed) => new Date(f.ultima_sync ?? inicial);
+  const inicioRun = new Date().toISOString();
+  const marcarFuente = (id: string, campos: { ultima_sync?: string; ultimo_error: string | null }) =>
+    admin.from("fuentes_redes").update(campos).eq("id", id);
+
+  const procesar = async (f: FuenteRed, canal: "instagram" | "facebook", posts: { id: string; texto: string | null; imagenUrl: string | null; url: string | null }[]) => {
+    r.publicaciones += posts.length;
+    try {
+      for (const p of posts) {
+        const imagen = p.imagenUrl ? await descargarImagen(p.imagenUrl) : null;
+        const salida = await procesarEntradaBuzon(admin, {
+          canal,
+          externoId: p.id,
+          remitente: f.identificador,
+          remitenteNombre: f.nombre,
+          negocio: null,
+          fuenteId: f.id,
+          texto: p.texto,
+          imagen,
+          fuenteUrl: p.url,
+          fuenteNombre: f.nombre,
+        });
+        if (salida.estado === "borrador") r.borradoresNuevos++;
+      }
+      await marcarFuente(f.id, { ultima_sync: inicioRun, ultimo_error: null });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await marcarFuente(f.id, { ultimo_error: msg.slice(0, 300) });
+      r.errores.push(`${f.nombre}: ${msg}`);
+    }
+  };
+
+  // Instagram: una ejecución para todas las cuentas fuente.
+  const ig = fuentes.filter((f) => f.plataforma === "instagram");
+  if (ig.length) {
+    try {
+      const usuarios = ig.map((f) => usuarioInstagram(f.identificador) ?? f.identificador);
+      const lectura = await mediaPublicoInstagramApify(usuarios, new Date(Math.min(...ig.map((f) => desdeDe(f).getTime()))));
+      for (const f of ig) {
+        const usuario = (usuarioInstagram(f.identificador) ?? f.identificador).toLowerCase();
+        const media = (lectura.porUsuario.get(usuario) ?? []).filter((m) => new Date(m.timestamp) > desdeDe(f));
+        await procesar(
+          f,
+          "instagram",
+          media.map((m) => ({ id: m.id, texto: m.caption ?? null, imagenUrl: (m.media_type === "VIDEO" ? m.thumbnail_url : m.media_url) ?? null, url: m.permalink ?? null }))
+        );
+      }
+    } catch (err) {
+      r.errores.push(`Instagram fuentes: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Facebook: páginas y grupos, cada uno con su actor.
+  for (const [plataforma, leer] of [
+    ["facebook", postsPublicosFacebook],
+    ["facebook_grupo", postsPublicosGruposFacebook],
+  ] as const) {
+    const lista = fuentes.filter((f) => f.plataforma === plataforma);
+    if (!lista.length) continue;
+    try {
+      const urls = lista.map((f) => (plataforma === "facebook" ? urlPaginaFacebook(f.identificador) ?? f.identificador : f.identificador));
+      const porUrl = await leer(urls, new Date(Math.min(...lista.map((f) => desdeDe(f).getTime()))));
+      for (const [i, f] of lista.entries()) {
+        const posts = (porUrl.get(urls[i]) ?? []).filter((p) => !p.fecha || new Date(p.fecha) > desdeDe(f));
+        await procesar(f, "facebook", posts);
+      }
+    } catch (err) {
+      r.errores.push(`${plataforma} fuentes: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
   return r;
 }

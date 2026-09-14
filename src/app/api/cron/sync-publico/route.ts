@@ -1,11 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sincronizarInstagramPublico, sincronizarFacebookPublico } from "@/lib/sync-publico";
+import { sincronizarInstagramPublico, sincronizarFacebookPublico, sincronizarFuentesPublicas } from "@/lib/sync-publico";
 
 // Lee Instagram (Business Discovery o, sin App Review, Apify) y Facebook (Apify) de los negocios
 // que tienen esas redes rellenadas, sin que hayan conectado nada.
-// ?red=instagram|facebook para lanzar solo una; ?lote=N para el tamaño.
+// ?red=instagram|facebook|fuentes para lanzar solo una; ?lote=N para el tamaño.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -32,5 +32,6 @@ export async function GET(request: Request) {
   const resumen = [];
   if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote));
   if (!red || red === "facebook") resumen.push(await sincronizarFacebookPublico(admin, lote));
+  if (!red || red === "fuentes") resumen.push(await sincronizarFuentesPublicas(admin));
   return NextResponse.json({ ok: true, resumen });
 }

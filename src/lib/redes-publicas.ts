@@ -211,6 +211,8 @@ interface ItemApify {
   pageUrl?: string;
   inputUrl?: string;
   facebookUrl?: string;
+  groupUrl?: string;
+  groupId?: string;
 }
 
 /**
@@ -219,9 +221,20 @@ interface ItemApify {
  * agrupados por la URL de página que se pidió.
  */
 export async function postsPublicosFacebook(paginas: string[], desde: Date): Promise<Map<string, PostFacebookPublico[]>> {
+  return ejecutarActorFacebook(process.env.APIFY_FACEBOOK_ACTOR ?? "apify~facebook-posts-scraper", paginas, desde);
+}
+
+/**
+ * Posts recientes de grupos públicos de Facebook. Otro actor (los
+ * grupos no son páginas), mismo formato de salida.
+ */
+export async function postsPublicosGruposFacebook(grupos: string[], desde: Date): Promise<Map<string, PostFacebookPublico[]>> {
+  return ejecutarActorFacebook(process.env.APIFY_FACEBOOK_GRUPOS_ACTOR ?? "apify~facebook-groups-scraper", grupos, desde);
+}
+
+async function ejecutarActorFacebook(actor: string, paginas: string[], desde: Date): Promise<Map<string, PostFacebookPublico[]>> {
   const token = process.env.APIFY_TOKEN;
   if (!token) throw new Error("Falta APIFY_TOKEN");
-  const actor = process.env.APIFY_FACEBOOK_ACTOR ?? "apify~facebook-posts-scraper";
 
   const url = new URL(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items`);
   url.searchParams.set("token", token);
@@ -248,7 +261,7 @@ export async function postsPublicosFacebook(paginas: string[], desde: Date): Pro
   for (const it of items) {
     const id = it.postId ?? it.id;
     if (!id) continue;
-    const origen = it.inputUrl ?? it.pageUrl ?? it.facebookUrl ?? "";
+    const origen = it.inputUrl ?? it.pageUrl ?? it.groupUrl ?? it.facebookUrl ?? "";
     const clave = indice.get(normal(origen)) ?? [...indice.entries()].find(([n]) => normal(origen).startsWith(n))?.[1];
     if (!clave) continue;
 

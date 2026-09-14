@@ -35,6 +35,7 @@ const EsquemaEvento = z.object({
   es_gratis: z.boolean().describe("true si dice gratis, entrada libre o similar."),
   precio_texto: z.string().describe("Precio tal cual aparece ('12 € anticipada / 15 € taquilla', 'consumición'). Vacío si no hay o es gratis."),
   lugar_nombre: z.string().describe("Nombre del sitio donde ocurre SOLO si el cartel lo dice y NO es el propio negocio remitente. Vacío en caso contrario."),
+  municipio: z.string().describe("Localidad donde ocurre, tal como la dice el cartel o el texto ('Baeza', 'Linares', 'Granada'). Vacío si no se dice; no supongas Jaén."),
 });
 
 export type EventoExtraido = z.infer<typeof EsquemaEvento>;
@@ -88,6 +89,8 @@ function mediaAdmitido(mime: string) {
 
 interface Entrada {
   negocioNombre: string;
+  /** Cuenta que difunde eventos de otros (agregador, grupo): el lugar sale del cartel. */
+  esFuente?: boolean;
   texto?: string | null;
   imagen?: { bytes: Buffer; mime: string } | null;
   ahora?: Date;
@@ -106,7 +109,7 @@ interface RespuestaChat {
  * Devuelve la extracción o null si no había nada que leer (ni texto ni
  * imagen admitida). Lanza si la API falla: el webhook decide qué hacer.
  */
-export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new Date() }: Entrada) {
+export async function extraerEvento({ negocioNombre, esFuente = false, texto, imagen, ahora = new Date() }: Entrada) {
   const clave = process.env.OPENROUTER_API_KEY;
   if (!clave) throw new Error("Falta OPENROUTER_API_KEY");
 
@@ -121,7 +124,9 @@ export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new 
 
   const partes = [
     `Hoy es ${FECHA_JAEN.format(ahora)}.`,
-    `El mensaje lo manda el negocio «${negocioNombre}».`,
+    esFuente
+      ? `El mensaje lo publica «${negocioNombre}», una cuenta que difunde eventos de otros sitios: el lugar es el que diga el cartel o el texto (lugar_nombre), no esta cuenta.`
+      : `El mensaje lo manda el negocio «${negocioNombre}».`,
     texto?.trim() ? `Texto del mensaje:\n${texto.trim()}` : "El mensaje no lleva texto, solo la imagen.",
   ];
   if (contenido.length === 0 && !texto?.trim()) return null;
@@ -189,7 +194,7 @@ export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new 
   // Los modelos pequeños repiten el nombre del remitente como lugar
   // aunque se les diga que no: entonces el lugar es el propio negocio.
   const plano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (evento.lugar_nombre && plano(evento.lugar_nombre) === plano(negocioNombre)) evento.lugar_nombre = "";
+  if (!esFuente && evento.lugar_nombre && plano(evento.lugar_nombre) === plano(negocioNombre)) evento.lugar_nombre = "";
 
   // Y no siempre respetan el formato de fecha pedido: "2026-09-26 22:00",
   // con segundos, o solo el día. Se normaliza a YYYY-MM-DDTHH:mm, que es

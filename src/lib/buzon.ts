@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { extraerEvento, type EventoExtraido } from "@/lib/extraccion-evento";
 import { isoDesdeHoraJaen, isoDiaCompletoJaen } from "@/lib/eventos";
+import { municipioDeJaen, normalizarMunicipio } from "@/lib/municipios-jaen";
 
 // Tramo común de todas las entradas (WhatsApp, Facebook, Instagram):
 // guardar lo recibido en buzon_mensajes, leerlo con Claude y dejar un
@@ -35,7 +36,9 @@ export interface EntradaBuzon {
   /** Teléfono (WhatsApp) o id de página/cuenta (FB/IG). */
   remitente: string;
   remitenteNombre?: string | null;
-  negocio: NegocioBuzon;
+  /** Null cuando viene de una cuenta fuente (fuentes_redes): el evento no cuelga de ningún negocio. */
+  negocio: NegocioBuzon | null;
+  fuenteId?: string | null;
   texto?: string | null;
   /** Imagen ya descargada. Se archiva en el bucket antes de llamar a Claude. */
   imagen?: { bytes: Buffer; mime: string } | null;
@@ -66,7 +69,8 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
       remitente_nombre: e.remitenteNombre ?? null,
       texto: e.texto ?? null,
       imagen_mime: e.imagen?.mime ?? null,
-      negocio_id: e.negocio.id,
+      negocio_id: e.negocio?.id ?? null,
+      fuente_id: e.fuenteId ?? null,
       fuente_url: e.fuenteUrl ?? null,
       estado: "recibido",
     })
@@ -96,7 +100,7 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
   let imagenPath: string | null = null;
   if (e.imagen) {
     const ext = e.imagen.mime.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
-    imagenPath = `${e.negocio.id}/${e.canal}-${e.externoId.replace(/[^a-zA-Z0-9_.-]/g, "_")}.${ext}`;
+    imagenPath = `${e.negocio?.id ?? `fuente-${e.fuenteId ?? "x"}`}/${e.canal}-${e.externoId.replace(/[^a-zA-Z0-9_.-]/g, "_")}.${ext}`;
     const { error: errSubida } = await admin.storage
       .from(BUCKET_BUZON)
       .upload(imagenPath, e.imagen.bytes, { contentType: e.imagen.mime, upsert: true });
@@ -106,7 +110,12 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
 
   let extraido: EventoExtraido | null;
   try {
-    extraido = await extraerEvento({ negocioNombre: e.negocio.nombre, texto: e.texto, imagen: e.imagen });
+    extraido = await extraerEvento({
+      negocioNombre: e.negocio?.nombre ?? e.remitenteNombre ?? e.remitente,
+      esFuente: !e.negocio,
+      texto: e.texto,
+      imagen: e.imagen,
+    });
   } catch (err) {
     return cerrar("error", { error: `Claude: ${String(err)}` });
   }
@@ -118,13 +127,30 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
   if (!fechas) {
     return cerrar("error", { extraccion: extraido, error: `Fecha ilegible: ${extraido.fecha_inicio}` });
   }
+  // Lo que ya pasó no va a la agenda: un agregador leído con 30 días de
+  // ventana trae conciertos de hace tres semanas.
+  if (new Date(fechas.fin ?? fechas.inicio).getTime() < Date.now() - 86400000) {
+    return cerrar("no_es_evento", { extraccion: extraido, error: `Ya pasó: ${extraido.fecha_inicio}` });
+  }
+  // Fuera de la provincia, fuera de la guía. Si no dice localidad,
+  // se asume la del negocio (o la capital, si no hay negocio).
+  let municipioId: string | null | undefined;
+  if (extraido.municipio) {
+    const oficial = municipioDeJaen(extraido.municipio);
+    if (!oficial) return cerrar("no_es_evento", { extraccion: extraido, error: `Fuera de Jaén: ${extraido.municipio}` });
+    municipioId = await idDeMunicipio(admin, oficial);
+  }
 
   const imagenUrl = imagenPath ? admin.storage.from(BUCKET_BUZON).getPublicUrl(imagenPath).data.publicUrl : null;
+
+  // De una cuenta fuente: si el cartel nombra un sitio que está en la
+  // guía, el evento cuelga de él (sale en su ficha y con su categoría).
+  const negocio = e.negocio ?? (extraido.lugar_nombre ? await negocioPorNombre(admin, extraido.lugar_nombre) : null);
 
   const resultado = await insertarBorrador(admin, {
     titulo: extraido.titulo,
     descripcion: extraido.descripcion || null,
-    negocio: e.negocio,
+    negocio,
     imagen: imagenUrl,
     fecha_inicio: fechas.inicio,
     fecha_fin: fechas.fin,
@@ -132,6 +158,7 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
     es_gratis: extraido.es_gratis,
     precio_texto: extraido.es_gratis ? null : extraido.precio_texto || null,
     lugar_nombre: extraido.lugar_nombre || null,
+    municipio_id: municipioId,
     origen: e.canal,
     fuente_nombre: e.fuenteNombre ?? nombreCanal(e.canal),
     fuente_url: e.fuenteUrl ?? null,
@@ -154,14 +181,14 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
 export async function reprocesarMensaje(admin: SupabaseClient, buzonId: string): Promise<SalidaBuzon> {
   const { data: m } = await admin
     .from("buzon_mensajes")
-    .select("id, canal, mensaje_externo_id, remitente, remitente_nombre, texto, imagen_path, imagen_mime, negocio_id, evento_id, fuente_url, negocio:negocios(id, slug, nombre, categoria_id, municipio_id)")
+    .select("id, canal, mensaje_externo_id, remitente, remitente_nombre, texto, imagen_path, imagen_mime, negocio_id, fuente_id, evento_id, fuente_url, negocio:negocios(id, slug, nombre, categoria_id, municipio_id)")
     .eq("id", buzonId)
     .maybeSingle<{
       id: string; canal: Canal; mensaje_externo_id: string; remitente: string; remitente_nombre: string | null;
       texto: string | null; imagen_path: string | null; imagen_mime: string | null; negocio_id: string | null;
-      evento_id: string | null; fuente_url: string | null; negocio: NegocioBuzon | null;
+      fuente_id: string | null; evento_id: string | null; fuente_url: string | null; negocio: NegocioBuzon | null;
     }>();
-  if (!m || !m.negocio) return { estado: "error" };
+  if (!m || (!m.negocio && !m.fuente_id)) return { estado: "error" };
 
   let imagen: { bytes: Buffer; mime: string } | null = null;
   if (m.imagen_path && m.imagen_mime) {
@@ -186,10 +213,36 @@ export async function reprocesarMensaje(admin: SupabaseClient, buzonId: string):
     remitente: m.remitente,
     remitenteNombre: m.remitente_nombre,
     negocio: m.negocio,
+    fuenteId: m.fuente_id,
     texto: m.texto,
     imagen,
     fuenteUrl,
   });
+}
+
+const plano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Negocio activo cuyo nombre coincide con el lugar del cartel. Solo
+ * coincidencia clara (mismo nombre normalizado, o el nombre del negocio
+ * contenido en el lugar con 6+ letras): "Sala La Paca" ↔ "SALA LA PACA".
+ * Con dudas, null: mejor un evento sin ficha que en la ficha equivocada.
+ */
+export async function negocioPorNombre(admin: SupabaseClient, lugar: string): Promise<NegocioBuzon | null> {
+  const buscado = plano(lugar);
+  if (buscado.length < 4) return null;
+  const { data } = await admin
+    .from("negocios")
+    .select("id, slug, nombre, categoria_id, municipio_id")
+    .eq("activo", true)
+    .ilike("nombre", `%${lugar.replace(/[%_]/g, "").trim().slice(0, 40)}%`)
+    .limit(5)
+    .returns<NegocioBuzon[]>();
+  const candidatos = (data ?? []).filter((n) => {
+    const nombre = plano(n.nombre);
+    return nombre === buscado || (nombre.length >= 6 && buscado.includes(nombre)) || (buscado.length >= 6 && nombre.includes(buscado));
+  });
+  return candidatos.length === 1 ? candidatos[0] : null;
 }
 
 function nombreCanal(c: Canal) {
@@ -213,7 +266,7 @@ export function fechasDesdeExtraccion(x: EventoExtraido): { inicio: string; fin:
 export interface BorradorNuevo {
   titulo: string;
   descripcion: string | null;
-  negocio: NegocioBuzon;
+  negocio: NegocioBuzon | null;
   imagen: string | null;
   fecha_inicio: string;
   fecha_fin: string | null;
@@ -221,6 +274,8 @@ export interface BorradorNuevo {
   es_gratis: boolean;
   precio_texto: string | null;
   lugar_nombre: string | null;
+  /** Si el cartel dice la localidad; si no, la del negocio o el default (capital). */
+  municipio_id?: string | null;
   origen: Canal;
   fuente_nombre: string | null;
   fuente_url: string | null;
@@ -242,18 +297,63 @@ function estadoInicial(confianza: BorradorNuevo["confianza"]) {
  * eventos de Facebook, que vienen estructurados y no pasan por Claude.
  * Duplicado = salta uq_eventos_huella o uq_eventos_url_canonica.
  */
+/** Fila de `municipios` para un nombre oficial, creándola si no existe (como sync-events). */
+async function idDeMunicipio(admin: SupabaseClient, nombre: string): Promise<string | null> {
+  const slug = normalizarMunicipio(nombre).replace(/ /g, "-");
+  const { data } = await admin.from("municipios").select("id").eq("slug", slug).maybeSingle();
+  if (data?.id) return data.id as string;
+  const { data: nuevo } = await admin.from("municipios").upsert({ nombre, slug }, { onConflict: "slug" }).select("id").maybeSingle();
+  return (nuevo?.id as string | undefined) ?? null;
+}
+
+const palabras = (t: string) => new Set(plano(t).split(" ").filter((p) => p.length >= 4));
+
+/**
+ * La huella de la base solo pilla el mismo título el mismo día. Dos
+ * posts del mismo festival con títulos distintos ("San Lucas & Roll
+ * 2026" y "San Lucas & Roll 2026: M-Clan, Burning...") se le escapan:
+ * mismo día, mismo sitio (negocio o lugar) y la mitad de las palabras
+ * en común, es el mismo evento.
+ */
+async function pareceRepetido(admin: SupabaseClient, b: BorradorNuevo): Promise<boolean> {
+  const dia = b.fecha_inicio.slice(0, 10);
+  const { data } = await admin
+    .from("eventos")
+    .select("titulo, negocio_id, lugar_nombre")
+    .gte("fecha_inicio", `${dia}T00:00:00Z`)
+    .lt("fecha_inicio", `${dia}T23:59:59Z`)
+    .neq("estado", "borrador")
+    .limit(50);
+  const mias = palabras(b.titulo);
+  const contiene = (a: string, c: string) => a.length >= 6 && c.length >= 6 && (a.includes(c) || c.includes(a));
+  return (data ?? []).some((e) => {
+    const suyas = palabras(e.titulo);
+    const comunes = [...mias].filter((p) => suyas.has(p)).length;
+    if (!comunes) return false;
+    const parecido = comunes / Math.min(mias.size, suyas.size);
+    // "La Alameda" y "Auditorio Municipal La Alameda" son el mismo sitio.
+    const mismoSitio =
+      (b.negocio && e.negocio_id === b.negocio.id) ||
+      (b.lugar_nombre && e.lugar_nombre && contiene(plano(e.lugar_nombre), plano(b.lugar_nombre)));
+    // Mismo sitio y la mitad del título, o títulos casi iguales el mismo día.
+    return (mismoSitio && parecido >= 0.5) || parecido >= 0.8;
+  });
+}
+
 export async function insertarBorrador(
   admin: SupabaseClient,
   b: BorradorNuevo
 ): Promise<{ estado: "borrador"; eventoId: string } | { estado: "duplicado" } | { estado: "error"; error: string }> {
+  if (await pareceRepetido(admin, b)) return { estado: "duplicado" };
   const { data, error } = await admin
     .from("eventos")
     .insert({
       titulo: b.titulo.slice(0, 120),
       descripcion: b.descripcion,
-      negocio_id: b.negocio.id,
-      municipio_id: b.negocio.municipio_id,
-      categoria_id: b.negocio.categoria_id,
+      negocio_id: b.negocio?.id ?? null,
+      // Sin negocio ni localidad, el municipio lo pone la base (capital).
+      ...(b.municipio_id ? { municipio_id: b.municipio_id } : b.negocio ? { municipio_id: b.negocio.municipio_id } : {}),
+      ...(b.negocio ? { categoria_id: b.negocio.categoria_id } : {}),
       imagen: b.imagen,
       fecha_inicio: b.fecha_inicio,
       fecha_fin: b.fecha_fin,
