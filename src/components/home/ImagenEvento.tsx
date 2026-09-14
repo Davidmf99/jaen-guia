@@ -65,23 +65,17 @@ export default function ImagenEvento({
             className={`absolute -right-6 -bottom-6 text-white/10 ${ficha ? "h-72 w-72" : "h-44 w-44"}`}
           />
         )}
-        <span className={`relative font-medium capitalize tracking-[0.15em] text-white/70 ${ficha ? "text-base" : "text-xs"}`}>
-          {semana}
-        </span>
-        <span
-          className={`relative font-display font-semibold leading-none ${
-            ficha ? "text-7xl md:text-8xl" : "text-5xl"
-          }`}
-        >
-          {dia}
-        </span>
-        <span
-          className={`relative mt-1.5 font-semibold tracking-[0.2em] text-white/80 ${
-            ficha ? "text-base" : "text-sm"
-          }`}
-        >
-          {mes}
-        </span>
+        {/* En la ficha el título va encima del hueco y la fecha ya está
+            debajo, en la lista de datos: la fecha grande se montaba con
+            el título ("11 OCT" tras "Monólogos"). Ahí solo el degradado
+            y el icono; en la tarjeta, la fecha es lo que identifica. */}
+        {!ficha && (
+          <>
+            <span className="relative text-xs font-medium capitalize tracking-[0.15em] text-white/70">{semana}</span>
+            <span className="relative font-display text-5xl font-semibold leading-none">{dia}</span>
+            <span className="relative mt-1.5 text-sm font-semibold tracking-[0.2em] text-white/80">{mes}</span>
+          </>
+        )}
       </div>
     );
   }
