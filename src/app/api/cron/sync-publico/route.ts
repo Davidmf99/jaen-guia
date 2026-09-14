@@ -29,9 +29,13 @@ export async function GET(request: Request) {
   const red = searchParams.get("red");
   const lote = Number(searchParams.get("lote")) || undefined;
 
+  // Presupuesto total por debajo del maxDuration (300 s). Primero las
+  // cuentas fuente, que traen más eventos por post; lo que no quepa
+  // queda para mañana.
+  const hasta = Date.now() + 250_000;
   const resumen = [];
-  if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote));
-  if (!red || red === "facebook") resumen.push(await sincronizarFacebookPublico(admin, lote));
-  if (!red || red === "fuentes") resumen.push(await sincronizarFuentesPublicas(admin));
-  return NextResponse.json({ ok: true, resumen });
+  if (!red || red === "fuentes") resumen.push(await sincronizarFuentesPublicas(admin, hasta));
+  if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote, hasta));
+  if (!red || red === "facebook") resumen.push(await sincronizarFacebookPublico(admin, lote, hasta));
+  return NextResponse.json({ ok: true, resumen, segundos: Math.round((Date.now() - (hasta - 250_000)) / 1000) });
 }

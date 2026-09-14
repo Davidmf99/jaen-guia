@@ -21,9 +21,12 @@ import {
 // lo confirme en /admin/borradores.
 //
 // Por lotes: cada pasada coge los N negocios con la sincronización
-// más antigua. Con 400 negocios y un cron cada 3 h, lote de 60 =
-// cada negocio se lee ~cada 20 h. El cron de Vercel Hobby es diario:
-// entonces lote grande (200) y cada negocio cada 2 días.
+// más antigua. El cron de Vercel Hobby es diario y la función muere a
+// los 300 s; leer un cartel con Gemini son ~3 s y un negocio trae 1-2
+// por día, así que en una pasada caben ~20 de Instagram y ~15 de
+// Facebook además de las cuentas fuente. Con ~85 cuentas útiles, cada
+// una se lee cada 4 días; lo que no cabe queda el primero para mañana.
+// El plazo (`hasta`) corta antes de empezar un negocio nuevo.
 
 interface NegocioRed {
   id: string;
@@ -127,7 +130,15 @@ async function procesarMediaInstagram(admin: SupabaseClient, negocio: NegocioRed
   return salida.estado === "borrador";
 }
 
-export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 60): Promise<ResumenPublico> {
+/** Instante (ms) a partir del cual no se empieza ningún negocio más: Vercel corta la función a los 300 s. */
+export type Plazo = number;
+const sinTiempo = (r: ResumenPublico, hasta: Plazo, quedan: number) => {
+  if (Date.now() < hasta) return false;
+  r.errores.push(`Sin tiempo: quedan ${quedan} para la próxima pasada.`);
+  return true;
+};
+
+export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 20, hasta: Plazo = Infinity): Promise<ResumenPublico> {
   const r: ResumenPublico = { plataforma: "instagram", negocios: 0, publicaciones: 0, borradoresNuevos: 0, desactivados: [], errores: [] };
   if (!instagramDiscoveryConfigurado() && !apifyConfigurado()) {
     r.errores.push("Instagram sin configurar: ni Business Discovery (INSTAGRAM_JG_USER_ID / INSTAGRAM_JG_TOKEN) ni Apify (APIFY_TOKEN).");
@@ -150,7 +161,8 @@ export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 
 
   if (instagramDiscoveryConfigurado()) {
     // Vía oficial: una llamada por cuenta.
-    for (const { negocio, desde, usuario } of validos) {
+    for (const [i, { negocio, desde, usuario }] of validos.entries()) {
+      if (sinTiempo(r, hasta, validos.length - i)) break;
       const inicioRun = new Date().toISOString();
       try {
         const media = await mediaPublicoInstagram(usuario, new Date(desde));
@@ -188,7 +200,8 @@ export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 
     return r;
   }
 
-  for (const { negocio, desde, usuario } of validos) {
+  for (const [i, { negocio, desde, usuario }] of validos.entries()) {
+    if (sinTiempo(r, hasta, validos.length - i)) break;
     const motivo = lectura.noAccesibles.get(usuario.toLowerCase());
     if (motivo) {
       await marcar(admin, negocio.id, "instagram", { identificador: usuario, desactivado: true, ultimo_error: motivo.slice(0, 300) });
@@ -213,7 +226,7 @@ export async function sincronizarInstagramPublico(admin: SupabaseClient, lote = 
 // Facebook (Apify)
 // ---------------------------------------------------------------
 
-export async function sincronizarFacebookPublico(admin: SupabaseClient, lote = 40): Promise<ResumenPublico> {
+export async function sincronizarFacebookPublico(admin: SupabaseClient, lote = 15, hasta: Plazo = Infinity): Promise<ResumenPublico> {
   const r: ResumenPublico = { plataforma: "facebook", negocios: 0, publicaciones: 0, borradoresNuevos: 0, desactivados: [], errores: [] };
   if (!apifyConfigurado()) {
     r.errores.push("Apify sin configurar (APIFY_TOKEN).");
@@ -251,7 +264,8 @@ export async function sincronizarFacebookPublico(admin: SupabaseClient, lote = 4
     return r;
   }
 
-  for (const v of validos) {
+  for (const [i, v] of validos.entries()) {
+    if (sinTiempo(r, hasta, validos.length - i)) break;
     const posts = (porPagina.get(v.url) ?? []).filter((p) => !p.fecha || new Date(p.fecha) > new Date(v.desde));
     r.publicaciones += posts.length;
     for (const p of posts) {
@@ -288,7 +302,7 @@ interface FuenteRed {
   ultima_sync: string | null;
 }
 
-export async function sincronizarFuentesPublicas(admin: SupabaseClient): Promise<ResumenPublico> {
+export async function sincronizarFuentesPublicas(admin: SupabaseClient, hasta: Plazo = Infinity): Promise<ResumenPublico> {
   const r: ResumenPublico = { plataforma: "fuentes", negocios: 0, publicaciones: 0, borradoresNuevos: 0, desactivados: [], errores: [] };
   if (!apifyConfigurado()) {
     r.errores.push("Apify sin configurar (APIFY_TOKEN).");
@@ -312,6 +326,7 @@ export async function sincronizarFuentesPublicas(admin: SupabaseClient): Promise
     admin.from("fuentes_redes").update(campos).eq("id", id);
 
   const procesar = async (f: FuenteRed, canal: "instagram" | "facebook", posts: { id: string; texto: string | null; imagenUrl: string | null; url: string | null }[]) => {
+    if (sinTiempo(r, hasta, 1)) return;
     r.publicaciones += posts.length;
     try {
       for (const p of posts) {
