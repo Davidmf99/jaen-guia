@@ -1,0 +1,108 @@
+# Backup nocturno de la base de datos (C-2 de la auditoría de seguridad).
+#
+# Alternativa gratis a Supabase Pro: cada noche hace un pg_dump completo,
+# lo comprime y lo CIFRA, y lo guarda como artefacto de GitHub (fuera de
+# Supabase, otro proveedor = otro punto de fallo).
+#
+# Cubre TODA la base de datos (negocios, perfiles, reseñas, eventos,
+# membresías, mapeo de pagos de Stripe, cuentas de auth...). NO cubre los
+# ficheros de Supabase Storage (portadas subidas, carteles del buzón):
+# esos son re-generables o de bajo valor frente a la BD.
+#
+# ---------------------------------------------------------------------
+# SECRETOS QUE HAY QUE CREAR EN GITHUB (Settings → Secrets and variables
+# → Actions → New repository secret):
+#
+#   SUPABASE_DB_URL
+#     Supabase → Project Settings → Database → Connection string → URI,
+#     pestaña "Session pooler" (da IPv4, que es lo que usa GitHub).
+#     Copia la cadena y sustituye [YOUR-PASSWORD] por la contraseña real
+#     de la BD. Queda algo como:
+#     postgresql://postgres.tsmxhwjyzugjciqbwrwr:CONTRASEÑA@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+#
+#   BACKUP_PASSPHRASE
+#     Una frase larga y aleatoria que te inventas TÚ y guardas a buen
+#     recaudo (gestor de contraseñas). Es lo único con lo que se puede
+#     descifrar el backup: si la pierdes, el backup no sirve.
+#
+# ---------------------------------------------------------------------
+# PROBARLO: pestaña Actions → "Backup BD" → Run workflow. Descarga el
+# artefacto y descífralo en tu máquina:
+#   gpg --batch --pinentry-mode loopback --passphrase 'TU_FRASE' \
+#       -d jaenguia-db-XXXX.sql.gz.gpg | gunzip > backup.sql
+#
+# RESTAURAR (último recurso, operación manual y con cuidado): el .sql se
+# aplica con psql sobre una BD nueva. Ante un desastre real, pide ayuda
+# antes de restaurar en producción.
+# ---------------------------------------------------------------------
+
+name: Backup BD
+
+on:
+  schedule:
+    # 03:17 UTC cada noche (hora poco concurrida).
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Instalar pg_dump 17 (PGDG)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Dump + comprimir + cifrar
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ] || [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "Faltan los secretos SUPABASE_DB_URL o BACKUP_PASSPHRASE." >&2
+            exit 1
+          fi
+          fecha="$(date -u +%Y-%m-%d_%H%M)"
+          archivo="jaenguia-db-${fecha}.sql.gz.gpg"
+          echo "archivo=${archivo}" >> "$GITHUB_ENV"
+
+          # pg_dump completo, sin dueños/privilegios (facilita el restore
+          # en una BD nueva). Cifrado simétrico AES-256.
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --no-owner --no-privileges \
+            | gzip -9 \
+            | gpg --batch --yes --pinentry-mode loopback \
+                  --passphrase "$BACKUP_PASSPHRASE" \
+                  --cipher-algo AES256 -c \
+            > "$archivo"
+
+          # Guardia anti-fallo silencioso: un dump vacío/roto es minúsculo.
+          tam=$(stat -c%s "$archivo")
+          echo "Tamaño del backup cifrado: ${tam} bytes"
+          if [ "$tam" -lt 1024 ]; then
+            echo "El backup es sospechosamente pequeño (${tam} bytes). Algo ha fallado." >&2
+            exit 1
+          fi
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.archivo }}
+          path: ${{ env.archivo }}
+          retention-days: 90
+          if-no-files-found: error
