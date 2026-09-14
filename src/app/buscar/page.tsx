@@ -34,8 +34,16 @@ interface NegocioRow {
  * devolviera el catálogo entero, y un "_" casaría con cualquier letra.
  */
 
+// Misma regla que public.normaliza_texto en la base (migración 0020):
+// sin tildes ni ñ, minúsculas, y cualquier signo pasa a un espacio. Si
+// no coinciden las dos, "Bar El Abuelo" no encuentra a "Bar «El Abuelo»".
 function normalizaTexto(texto: string) {
-  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function limpiarConsulta(bruta: string | undefined) {
