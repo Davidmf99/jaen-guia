@@ -338,3 +338,38 @@ export async function resolverBorradorAdmin(formData: FormData) {
   }
   return volver("Evento publicado.", "ok");
 }
+
+/**
+ * Quita un evento que entró solo desde redes y no debería estar. Con
+ * la publicación automática, esta es la red de seguridad: un error
+ * visible un día es aceptable; que no se pueda quitar en un clic, no.
+ */
+export async function quitarEventoRedAdmin(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?volver=%2Fadmin%2Fborradores");
+
+  const { data: perfil } = await supabase.from("perfiles").select("rol").eq("id", user.id).single();
+  const volver = (msg: string, tipo: "ok" | "error" = "error"): never =>
+    redirect(`/admin/borradores?${tipo}=${encodeURIComponent(msg)}`);
+  if (perfil?.rol !== "admin") return volver("Solo para administradores.");
+
+  const eventoId = String(formData.get("evento_id") ?? "");
+  const slugNegocio = String(formData.get("slug_negocio") ?? "");
+  if (!eventoId) return volver("Evento no encontrado.");
+
+  const { error, count } = await supabase
+    .from("eventos")
+    .delete({ count: "exact" })
+    .eq("id", eventoId)
+    .in("origen", ["whatsapp", "facebook", "instagram"]);
+  if (error) return volver("No hemos podido quitar el evento.");
+  if (!count) return volver("Ese evento ya no existe.");
+
+  revalidatePath("/");
+  revalidatePath("/eventos");
+  if (slugNegocio) revalidatePath(`/negocio/${slugNegocio}`);
+  return volver("Evento quitado.", "ok");
+}
