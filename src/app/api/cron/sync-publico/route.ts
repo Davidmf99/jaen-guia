@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sincronizarInstagramPublico, sincronizarFacebookPublico, sincronizarFuentesPublicas } from "@/lib/sync-publico";
+import { avisarAdmin, correoAdminSyncRedes } from "@/lib/email";
 
 // Lee Instagram (Business Discovery o, sin App Review, Apify) y Facebook (Apify) de los negocios
 // que tienen esas redes rellenadas, sin que hayan conectado nada.
@@ -37,5 +38,20 @@ export async function GET(request: Request) {
   if (!red || red === "fuentes") resumen.push(await sincronizarFuentesPublicas(admin, hasta));
   if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote, hasta));
   if (!red || red === "facebook") resumen.push(await sincronizarFacebookPublico(admin, lote, hasta));
-  return NextResponse.json({ ok: true, resumen, segundos: Math.round((Date.now() - (hasta - 250_000)) / 1000) });
+  const segundos = Math.round((Date.now() - (hasta - 250_000)) / 1000);
+
+  // Aviso solo cuando algo huele mal: errores que no sean "sin tiempo"
+  // (eso es normal), o una pasada completa sin un solo post con 85
+  // cuentas leídas (token caducado, Apify caído...).
+  const erroresReales = resumen.flatMap((r) => r.errores.filter((e) => !e.startsWith("Sin tiempo")));
+  const leidas = resumen.reduce((t, r) => t + r.negocios, 0);
+  const posts = resumen.reduce((t, r) => t + r.publicaciones, 0);
+  const motivo = erroresReales.length
+    ? `${erroresReales.length} error(es) en la pasada`
+    : !red && leidas >= 10 && posts === 0
+      ? `0 posts en ${leidas} cuentas`
+      : null;
+  if (motivo) await avisarAdmin(correoAdminSyncRedes({ motivo, resumen, segundos }));
+
+  return NextResponse.json({ ok: true, resumen, segundos, aviso: motivo });
 }

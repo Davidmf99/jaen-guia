@@ -308,3 +308,28 @@ export function correoAdminPagoRecibido(datos: { negocio: Negocio; concepto: str
     motivo: "Aviso interno para el administrador de Jaén Guía.",
   });
 }
+
+/**
+ * Aviso interno cuando la lectura de redes falla o no trae nada: sin
+ * esto, un token caducado o Apify caído se descubrirían semanas después
+ * al ver la agenda vacía.
+ */
+export function correoAdminSyncRedes(datos: {
+  motivo: string;
+  resumen: { plataforma: string; negocios: number; publicaciones: number; borradoresNuevos: number; errores: string[] }[];
+  segundos: number;
+}) {
+  return correo({
+    asunto: `Lectura de redes: ${datos.motivo}`,
+    resumen: datos.motivo,
+    titulo: "La lectura de redes necesita un vistazo",
+    parrafos: [n(datos.motivo), `La pasada ha durado ${datos.segundos} s.`],
+    detalles: datos.resumen.map((r) => [
+      r.plataforma,
+      `${r.negocios} cuentas · ${r.publicaciones} posts · ${r.borradoresNuevos} eventos${r.errores.length ? ` · ${r.errores.length} errores` : ""}`,
+    ]),
+    notas: datos.resumen.flatMap((r) => r.errores.slice(0, 5).map((e) => `${escapar(r.plataforma)}: ${escapar(e)}`)),
+    boton: { texto: "Ver borradores", url: `${urlSitio()}/admin/borradores` },
+    motivo: "Aviso interno para el administrador de Jaén Guía.",
+  });
+}
