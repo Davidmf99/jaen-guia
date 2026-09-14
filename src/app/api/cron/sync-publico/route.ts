@@ -34,10 +34,16 @@ export async function GET(request: Request) {
   // cuentas fuente, que traen más eventos por post; lo que no quepa
   // queda para mañana.
   const hasta = Date.now() + 250_000;
+  // Presupuesto de Apify: el plan gratis son 5 $/mes y cada post leído
+  // cuesta. Instagram 15 cuentas/día y Facebook solo en días alternos
+  // (~0,12 $/día): cada cuenta se lee cada 5-6 días, que para un bar que
+  // anuncia con una semana basta. Con ?red= se fuerza cualquiera.
+  const diaDelAnio = Math.floor((Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000);
+  const tocaFacebook = red === "facebook" || (!red && diaDelAnio % 2 === 0);
   const resumen = [];
   if (!red || red === "fuentes") resumen.push(await sincronizarFuentesPublicas(admin, hasta));
-  if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote, hasta));
-  if (!red || red === "facebook") resumen.push(await sincronizarFacebookPublico(admin, lote, hasta));
+  if (!red || red === "instagram") resumen.push(await sincronizarInstagramPublico(admin, lote ?? 15, hasta));
+  if (tocaFacebook) resumen.push(await sincronizarFacebookPublico(admin, lote ?? 10, hasta));
   const segundos = Math.round((Date.now() - (hasta - 250_000)) / 1000);
 
   // Aviso solo cuando algo huele mal: errores que no sean "sin tiempo"
