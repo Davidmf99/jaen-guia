@@ -13,6 +13,8 @@ const SECCIONES = [
 const LEGAL = [
   { href: "/aviso-legal", label: "Aviso legal" },
   { href: "/privacidad", label: "Privacidad" },
+  { href: "/terminos", label: "Condiciones de uso" },
+  { href: "/cookies", label: "Cookies" },
 ];
 
 // Componente de servidor: las categorías salen de la base, igual que en

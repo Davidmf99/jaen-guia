@@ -502,12 +502,12 @@ export default function RegistroForm() {
               </svg>
             </div>
             <span className="text-sm font-medium text-oliva-900">
-              Acepto el{" "}
+              Acepto las{" "}
               <Link
-                href="/aviso-legal"
+                href="/terminos"
                 className="font-bold text-terracota-600 hover:text-terracota-700 underline"
               >
-                aviso legal
+                condiciones de uso
               </Link>{" "}
               y la{" "}
               <Link
