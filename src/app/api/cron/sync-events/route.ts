@@ -145,6 +145,7 @@ export async function GET(request: Request) {
       fuente_nombre: fuenteNombre,
       fuente_url: evento.url,
       categoria_id: categoriaDe(evento.titulo),
+      imagen: evento.imagenUrl ?? null,
       // Solo si la fuente dice el municipio. Si no lo dice, se deja el
       // default de la tabla (la capital): las agendas municipales de Jaén
       // no lo repiten en cada evento.

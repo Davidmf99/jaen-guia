@@ -47,6 +47,9 @@ async function obtener(): Promise<EventoImportado[]> {
     if (RUIDO.test(titulo)) continue;
 
     const descripcion = campo("description").replace(/<!\[CDATA\[|\]\]>/g, "");
+    // El cartel va inline en la descripción, con ruta relativa.
+    const img = descripcion.match(/<img[^>]+src="([^"]+)"/)?.[1];
+    const imagenUrl = img ? new URL(img, "https://eventos.ujaen.es/").toString() : null;
     const primerParrafo = descripcion.match(/<p[^>]*>([\s\S]*?)<\/p>/)?.[1]?.replace(/<[^>]+>/g, " ") ?? "";
     const { lugar, municipio } = lugarYMunicipio(primerParrafo);
 
@@ -60,6 +63,7 @@ async function obtener(): Promise<EventoImportado[]> {
       lugarNombre: lugar,
       municipioNombre: municipio,
       url,
+      imagenUrl,
     });
   }
   return eventos;

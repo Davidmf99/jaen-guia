@@ -81,6 +81,10 @@ async function obtener(): Promise<EventoImportado[]> {
       lugarNombre: conMunicipio ? conMunicipio[1] : espacio || null,
       municipioNombre: conMunicipio ? conMunicipio[2] : null,
       url: new URL(href, BASE).toString(),
+      imagenUrl: (() => {
+        const src = $articulo.find("img").first().attr("src");
+        return src ? new URL(src, BASE).toString() : null;
+      })(),
     });
   });
 

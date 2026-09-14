@@ -1,11 +1,15 @@
 /**
  * Un evento tal y como sale de una agenda externa, antes de tocar la
- * base de datos. Deliberadamente pobre: título, cuándo, dónde y enlace.
+ * base de datos. Deliberadamente pobre: título, cuándo, dónde, enlace y
+ * la URL de su imagen.
  *
- * No se importan descripciones ni carteles de terceros. Los datos de un
- * hecho (qué, cuándo, dónde) no son obra protegida; el texto redactado y
- * las fotos de la agenda de origen sí, y no tenemos licencia sobre ellos.
- * Cada evento importado enlaza siempre a su ficha original.
+ * No se importan descripciones: los datos de un hecho (qué, cuándo,
+ * dónde) no son obra protegida; el texto redactado sí. La imagen se
+ * enlaza tal cual desde el servidor de origen (no se copia a nuestro
+ * bucket) y la tarjeta enlaza siempre a la ficha original con "vía X":
+ * decisión de David (14 sept 2026), asumiendo que un cartel de agenda
+ * pública se publica para difundirse. Si la URL deja de servir, la
+ * tarjeta cae sola al hueco con la fecha.
  */
 export interface EventoImportado {
   titulo: string;
@@ -20,6 +24,8 @@ export interface EventoImportado {
   municipioNombre?: string | null;
   /** Enlace a la ficha original. Es también la clave de actualización. */
   url: string;
+  /** Cartel o foto de la ficha original, URL absoluta; se enlaza, no se copia. */
+  imagenUrl?: string | null;
 }
 
 export interface Fuente {
