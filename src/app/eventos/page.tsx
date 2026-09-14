@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RefreshCw } from "lucide-react";
 import EventoCard, { type EventoTarjeta } from "@/components/home/EventoCard";
 import GridStagger from "@/components/motion/GridStagger";
 import { createClient } from "@/lib/supabase/server";
@@ -129,6 +129,31 @@ interface PageProps {
   searchParams: Promise<{ categoria?: string; cuando?: string }>;
 }
 
+// Cuándo entró el último evento leído de redes o agendas: es lo que se
+// enseña como "actualizado". La agenda se rellena sola cada mañana y
+// conviene decirlo: al principio hay pocos eventos y sin esta línea
+// parecería una web parada, no una que acaba de empezar a llenarse.
+async function getUltimaActualizacion(): Promise<Date | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("eventos")
+    .select("created_at")
+    .eq("estado", "publicado")
+    .in("origen", ["scraper", "instagram", "facebook", "whatsapp"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ created_at: string }>();
+  return data ? new Date(data.created_at) : null;
+}
+
+function textoActualizacion(fecha: Date | null) {
+  if (!fecha) return null;
+  const hora = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" }).format(fecha);
+  const dia = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "long" }).format(fecha);
+  const hoy = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "numeric", month: "long" }).format(new Date());
+  return dia === hoy ? `hoy a las ${hora}` : `el ${dia} a las ${hora}`;
+}
+
 export default async function EventosPage({ searchParams }: PageProps) {
   const { categoria, cuando } = await searchParams;
   const corte: CorteTemporal | undefined =
@@ -136,10 +161,12 @@ export default async function EventosPage({ searchParams }: PageProps) {
       ? cuando
       : undefined;
 
-  const [categorias, eventos] = await Promise.all([
+  const [categorias, eventos, ultimaActualizacion] = await Promise.all([
     getCategorias(),
     getEventos(categoria, corte),
+    getUltimaActualizacion(),
   ]);
+  const actualizado = textoActualizacion(ultimaActualizacion);
 
   // Los dos filtros se combinan, así que cada enlace conserva el otro.
   const href = (cambios: { categoria?: string; cuando?: string }) => {
@@ -168,6 +195,16 @@ export default async function EventosPage({ searchParams }: PageProps) {
             {TITULO}
           </h1>
           <p className="mt-2 text-oliva-700">{DESCRIPCION}</p>
+          <p className="mt-3 flex flex-wrap items-center gap-x-1.5 text-sm text-oliva-600">
+            <RefreshCw size={14} aria-hidden="true" className="shrink-0" />
+            <span>
+              Se actualiza cada mañana con lo que publican los propios sitios y las agendas oficiales
+              {actualizado && <> · última actualización {actualizado}</>}.
+            </span>
+            <Link href="/contacto" className="font-semibold text-oliva-900 underline underline-offset-4">
+              ¿Falta algo?
+            </Link>
+          </p>
         </header>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
