@@ -67,6 +67,7 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
       texto: e.texto ?? null,
       imagen_mime: e.imagen?.mime ?? null,
       negocio_id: e.negocio.id,
+      fuente_url: e.fuenteUrl ?? null,
       estado: "recibido",
     })
     .select("id")
@@ -143,6 +144,54 @@ export async function procesarEntradaBuzon(admin: SupabaseClient, e: EntradaBuzo
   return { ...salida, fechaInicio: fechas.inicio };
 }
 
+/**
+ * Vuelve a leer un mensaje ya guardado (texto + imagen del bucket) con
+ * el prompt actual, sin tocar Apify ni Meta. Si el mensaje ya había
+ * generado un evento y este no ha sido editado a mano (sigue con su
+ * origen y su fuente), se sustituye; si ahora no es evento, se borra.
+ * Sirve para aplicar mejoras del prompt a lo que ya entró.
+ */
+export async function reprocesarMensaje(admin: SupabaseClient, buzonId: string): Promise<SalidaBuzon> {
+  const { data: m } = await admin
+    .from("buzon_mensajes")
+    .select("id, canal, mensaje_externo_id, remitente, remitente_nombre, texto, imagen_path, imagen_mime, negocio_id, evento_id, fuente_url, negocio:negocios(id, slug, nombre, categoria_id, municipio_id)")
+    .eq("id", buzonId)
+    .maybeSingle<{
+      id: string; canal: Canal; mensaje_externo_id: string; remitente: string; remitente_nombre: string | null;
+      texto: string | null; imagen_path: string | null; imagen_mime: string | null; negocio_id: string | null;
+      evento_id: string | null; fuente_url: string | null; negocio: NegocioBuzon | null;
+    }>();
+  if (!m || !m.negocio) return { estado: "error" };
+
+  let imagen: { bytes: Buffer; mime: string } | null = null;
+  if (m.imagen_path && m.imagen_mime) {
+    const { data } = await admin.storage.from(BUCKET_BUZON).download(m.imagen_path);
+    if (data) imagen = { bytes: Buffer.from(await data.arrayBuffer()), mime: m.imagen_mime };
+  }
+
+  // Fuera lo que generó la lectura anterior. Solo si sigue siendo
+  // "nuestro" (mismo origen): un evento editado desde el panel cambia
+  // de origen y se respeta.
+  let fuenteUrl = m.fuente_url;
+  if (m.evento_id) {
+    const { data: ev } = await admin.from("eventos").select("origen, fuente_url").eq("id", m.evento_id).maybeSingle();
+    fuenteUrl ??= ev?.fuente_url ?? null;
+    if (ev?.origen === m.canal) await admin.from("eventos").delete().eq("id", m.evento_id);
+  }
+  await admin.from("buzon_mensajes").delete().eq("id", m.id);
+
+  return procesarEntradaBuzon(admin, {
+    canal: m.canal,
+    externoId: m.mensaje_externo_id,
+    remitente: m.remitente,
+    remitenteNombre: m.remitente_nombre,
+    negocio: m.negocio,
+    texto: m.texto,
+    imagen,
+    fuenteUrl,
+  });
+}
+
 function nombreCanal(c: Canal) {
   return c === "whatsapp" ? "WhatsApp" : c === "facebook" ? "Facebook" : "Instagram";
 }
@@ -178,11 +227,14 @@ export interface BorradorNuevo {
   confianza?: "alta" | "media" | "baja" | null;
 }
 
-// Con BUZON_AUTOPUBLICAR=1, lo que Claude lee con confianza alta sale
-// publicado directamente; el resto espera al admin/dueño. Apagado por
-// defecto: mejor un borrador de más que un concierto con la hora mal.
+// Publicación automática (decisión de 14 sept 2026: cero trabajo para
+// David). Lo leído con confianza alta o media se publica; lo de baja
+// queda en borrador por si alguien quiere mirarlo, sin obligación. El
+// filtro de ruido está en el prompt (extraccion-evento.ts). Con
+// BUZON_AUTOPUBLICAR=0 vuelve todo a borrador.
 function estadoInicial(confianza: BorradorNuevo["confianza"]) {
-  return process.env.BUZON_AUTOPUBLICAR === "1" && confianza === "alta" ? "publicado" : "borrador";
+  if (process.env.BUZON_AUTOPUBLICAR === "0") return "borrador";
+  return confianza === "alta" || confianza === "media" ? "publicado" : "borrador";
 }
 
 /**

@@ -39,14 +39,27 @@ const EsquemaEvento = z.object({
 
 export type EventoExtraido = z.infer<typeof EsquemaEvento>;
 
-const SISTEMA = `Eres el lector de carteles de Jaén Guía, una guía de ocio de Jaén (España).
-Los dueños de bares, tiendas y salas reenvían por WhatsApp el cartel o la story que ya han publicado en Instagram. Tu trabajo es sacar los datos del evento para crear un borrador que el dueño confirmará después: no inventes nada que no esté en la imagen o el texto.
+const SISTEMA = `Eres el lector de carteles de Jaén Guía, una agenda de ocio de Jaén (España).
+Recibes publicaciones de Instagram, Facebook o WhatsApp de bares, salas, tiendas e instituciones de Jaén. Tu trabajo es decidir si anuncian un plan al que la gente puede ir y sacar sus datos. Lo que digas se publica en la agenda sin revisión humana: si dudas, es_evento=false. No inventes nada que no esté en la imagen o el texto.
+
+Qué ES un evento (es_evento=true): algo que pasa en un lugar concreto, en una fecha concreta, y a lo que un vecino o visitante de Jaén puede ir o apuntarse: conciertos, actuaciones, teatro, monólogos, catas, cenas o menús especiales de un día, fiestas, presentaciones con público, rutas y visitas guiadas, talleres, mercados, ferias, exposiciones con inauguración, partidos, torneos, quedadas, jornadas con programa. También el estreno de un plato o producto en un bar si tiene día y hay que ir al local para vivirlo.
+
+Qué NO es un evento (es_evento=false), aunque lleve fecha:
+- Promociones y ofertas: descuentos, 2x1, "todos los jueves", menú del día, tapa del día, happy hour, rebajas, "nueva colección".
+- Avisos del negocio: horario, cierre por vacaciones, "abrimos", cambio de local, reservas abiertas sin evento detrás.
+- Ofertas de empleo, matrículas, inscripciones a cursos académicos, "vuelta al cole", plazos administrativos.
+- Noticias e institucional: inauguraciones de edificios oficiales, reuniones, firmas de convenios, entregas de premios sin público, comunicados, notas de prensa, sorteos y concursos en redes.
+- Recuerdos: fotos o vídeos de algo que ya pasó ("qué noche ayer", "gracias por venir"), salvo que anuncien una nueva fecha.
+- Contenido genérico: frases, felicitaciones, fotos del local, del equipo o de los platos.
 
 Reglas:
 - Fechas en español y con formatos de cartel: "SÁB 20 SEPT", "20/09", "este viernes", "20.09.26". Resuelve el día de la semana y el año con la fecha de hoy que se te da: si la fecha ya pasó este año, asume el año que viene; "este viernes" es el próximo viernes a partir de hoy.
+- La fecha puede venir en el texto o solo en la imagen (el cartel): mira los dos. Las expresiones relativas cuentan como fecha concreta y se resuelven con la fecha de hoy: "este fin de semana" (el sábado que viene), "este viernes", "mañana", "esta noche", "el próximo jueves".
+- Sin ninguna fecha, ni absoluta ni relativa, es_evento=false: una agenda sin fecha no sirve.
+- Una obra, concierto o función "de este fin de semana" o "en cartel" ES un evento aunque el post sea una crítica o un resumen de reseñas.
 - Horas: "22h", "22:00", "10 de la noche", "a partir de las 20". Usa formato 24h.
-- Si hay varias fechas (ciclo de conciertos), quédate con la primera y menciona el resto en la descripción.
-- Si el contenido no anuncia nada con fecha (foto de la tapa del día, "abrimos a las 12", promoción permanente), es_evento=false.
+- Si hay varias fechas (ciclo de conciertos), quédate con la primera futura y menciona el resto en la descripción.
+- confianza=alta solo si título, fecha y (si la hay) hora se leen sin ambigüedad; media si falta la hora o has supuesto el año; baja si has interpretado algo.
 - Título: lo que diría alguien al recomendarlo ("Concierto de Antonio Lizana", "Cata de aceites tempranos"), no el texto completo del cartel.`;
 
 const URL_POR_DEFECTO = "https://openrouter.ai/api/v1/chat/completions";
@@ -187,6 +200,17 @@ export async function extraerEvento({ negocioNombre, texto, imagen, ahora = new 
   evento.fecha_fin = normalizarFechaLocal(evento.fecha_fin);
   // Día sin hora → evento de día completo, diga lo que diga el flag.
   if (sinHora) evento.es_todo_el_dia = true;
+
+  // Un post se lee días después de publicarse: "SÁB 12 SEPT" leído el
+  // 14 es el sábado pasado, no el de dentro de un año. El modelo aplica
+  // "si ya pasó, año que viene" y lo manda a 2027; aquí se deshace. Un
+  // cartel real nunca anuncia algo a más de diez meses vista.
+  const restarAno = (f: string) => (f ? `${Number(f.slice(0, 4)) - 1}${f.slice(4)}` : f);
+  const limite = new Date(ahora.getTime() + 300 * 86400000).toISOString().slice(0, 16);
+  if (evento.fecha_inicio > limite) {
+    evento.fecha_inicio = restarAno(evento.fecha_inicio);
+    if (evento.fecha_fin > limite) evento.fecha_fin = restarAno(evento.fecha_fin);
+  }
   return evento;
 }
 
